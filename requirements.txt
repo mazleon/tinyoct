@@ -1,0 +1,40 @@
+# ─────────────────────────────────────────────────────────
+#  TinyOCT v3 — Python Dependencies
+#  Install: pip install -r requirements.txt
+# ─────────────────────────────────────────────────────────
+
+# Core deep learning
+torch>=2.1.0
+torchvision>=0.16.0
+
+# Pre-trained backbone access
+timm>=0.9.0
+
+# Config management
+omegaconf>=2.3.0
+
+# Datasets
+medmnist>=2.3.0          # OCTMNIST auto-download
+Pillow>=10.0.0
+
+# Metrics
+scikit-learn>=1.3.0
+numpy>=1.24.0
+
+# Visualisation
+matplotlib>=3.7.0
+
+# Attention maps (Week 7)
+grad-cam>=1.5.0          # pip install grad-cam
+
+# FLOPs counting (evaluation)
+thop>=0.1.1
+
+# Experiment tracking (optional — set logging.use_wandb=true in config)
+# wandb>=0.16.0
+
+# Testing
+pytest>=7.4.0
+
+# YAML config parsing
+PyYAML>=6.0

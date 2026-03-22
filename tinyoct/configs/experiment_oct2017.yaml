@@ -1,0 +1,13 @@
+# Primary experiment on OCT2017
+defaults:
+  - base
+
+data:
+  dataset: oct2017
+
+train:
+  epochs: 30
+  batch_size: 64
+
+logging:
+  use_wandb: false

@@ -1,0 +1,65 @@
+# ─────────────────────────────────────────────────────────
+#  TinyOCT — Ablation Study Configurations
+#  Each entry maps to one row in the ablation table (R0–R5)
+# ─────────────────────────────────────────────────────────
+
+ablations:
+  R0_baseline:
+    description: MobileNetV3-Small baseline, no RLAP
+    model.rlap.horizontal: false
+    model.rlap.vertical: false
+    model.rlap.orientation_bank: false
+    model.laplacian.enabled: false
+    model.prototype.enabled: false
+    train.loss.supcon_weight: 0.0
+    train.loss.orient_weight: 0.0
+
+  R1_laplacian:
+    description: + Frozen LaplacianLayer preprocessing
+    model.rlap.horizontal: false
+    model.rlap.vertical: false
+    model.rlap.orientation_bank: false
+    model.laplacian.enabled: true
+    model.prototype.enabled: false
+    train.loss.supcon_weight: 0.0
+    train.loss.orient_weight: 0.0
+
+  R2_rlap_hv:
+    description: + RLAP Horizontal + Vertical streams
+    model.rlap.horizontal: true
+    model.rlap.vertical: true
+    model.rlap.orientation_bank: false
+    model.laplacian.enabled: true
+    model.prototype.enabled: false
+    train.loss.supcon_weight: 0.0
+    train.loss.orient_weight: 0.0
+
+  R3_rlap_full:
+    description: + RLAP 6-direction orientation bank
+    model.rlap.horizontal: true
+    model.rlap.vertical: true
+    model.rlap.orientation_bank: true
+    model.laplacian.enabled: true
+    model.prototype.enabled: false
+    train.loss.supcon_weight: 0.0
+    train.loss.orient_weight: 0.0
+
+  R4_prototype:
+    description: + Prototype head + SupCon balanced loss
+    model.rlap.horizontal: true
+    model.rlap.vertical: true
+    model.rlap.orientation_bank: true
+    model.laplacian.enabled: true
+    model.prototype.enabled: true
+    train.loss.supcon_weight: 0.1
+    train.loss.orient_weight: 0.0
+
+  R5_full:
+    description: Full TinyOCT — all components + L_orient
+    model.rlap.horizontal: true
+    model.rlap.vertical: true
+    model.rlap.orientation_bank: true
+    model.laplacian.enabled: true
+    model.prototype.enabled: true
+    train.loss.supcon_weight: 0.1
+    train.loss.orient_weight: 0.05

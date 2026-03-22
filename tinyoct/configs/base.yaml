@@ -1,0 +1,88 @@
+# ─────────────────────────────────────────────────────────
+#  TinyOCT — Base Configuration
+# ─────────────────────────────────────────────────────────
+
+project:
+  name: tinyoct
+  seed: 42
+  device: auto           # auto | cpu | cuda | mps
+
+# ── Dataset ──────────────────────────────────────────────
+data:
+  root: ./data
+  oct2017_path: ./data/OCT2017
+  octmnist_path: ./data/medmnist
+  octid_path: ./data/OCTID
+  image_size: 224
+  num_workers: 4
+  pin_memory: true
+  classes: [CNV, DME, DRUSEN, NORMAL]
+  # Class weights (inverse frequency, OCT2017 approximate)
+  class_weights: [0.48, 1.60, 2.20, 0.72]
+
+# ── Model ─────────────────────────────────────────────────
+model:
+  backbone: mobilenetv3_small_100
+  pretrained: true
+  feature_dim: 576        # MobileNetV3-Small last feature channels (stage-6 conv_pw expansion)
+  spatial_size: 7         # Feature map spatial size after backbone
+  num_classes: 4
+  # RLAP v3
+  rlap:
+    horizontal: true
+    vertical: true
+    orientation_bank: true
+    angles: [0, 30, 45, 60, 90, 135]   # 6-direction bank
+    kernel_size: 3
+  # Prototype head
+  prototype:
+    enabled: true
+    temperature: 0.07     # cosine similarity temperature
+  # Laplacian preprocessing
+  laplacian:
+    enabled: true
+    alpha: 0.1            # residual blend strength
+
+# ── Training ──────────────────────────────────────────────
+train:
+  epochs: 30
+  batch_size: 64
+  num_workers: 4
+  optimizer: adamw
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  scheduler: cosine       # cosine | step | plateau
+  warmup_epochs: 2
+  # Loss
+  loss:
+    ce_weight: 1.0
+    supcon_weight: 0.1    # λ₁
+    orient_weight: 0.05   # λ₂
+    orient_angle_range: 5 # ±5° rotation for L_orient
+    orient_temperature: 2.0
+  # SupCon
+  supcon:
+    temperature: 0.07
+    balanced_sampling: true   # enforce equal class counts in batch
+
+# ── Evaluation ────────────────────────────────────────────
+eval:
+  batch_size: 128
+  tta: false                    # test-time augmentation
+  tta_transforms: [hflip, brightness]
+  calibration: true             # temperature scaling post-hoc
+
+# ── Checkpointing ─────────────────────────────────────────
+checkpoint:
+  dir: ./checkpoints
+  save_every_epoch: true        # keep all for ablation visualization
+  save_best: true
+  monitor: val_macro_f1
+  mode: max
+
+# ── Logging ───────────────────────────────────────────────
+logging:
+  use_wandb: false              # set true to enable Weights & Biases
+  wandb_project: tinyoct
+  log_every_n_steps: 20
+  output_dir: ./outputs

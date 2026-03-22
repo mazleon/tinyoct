@@ -1,0 +1,11 @@
+# Cross-scanner OOD evaluation on OCTID
+defaults:
+  - base
+
+data:
+  dataset: octid
+  octid_split_mode: full   # use all 500 images as test set
+
+eval:
+  mode: ood                # train=OCT2017, test=OCTID, no fine-tuning
+  ood_checkpoint: ./checkpoints/R5_full/best.pth
