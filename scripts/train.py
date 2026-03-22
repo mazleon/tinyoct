@@ -20,11 +20,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import torch
-from src.utils.seed import set_seed
-from src.utils.config import load_config, merge_ablation
-from src.models import TinyOCT
-from src.data import OCTDataModule
-from src.training import Trainer
+from tinyoct.utils.seed import set_seed
+from tinyoct.utils.config import load_config, merge_ablation
+from tinyoct.models import TinyOCT
+from tinyoct.data import OCTDataModule
+from tinyoct.training import Trainer
 
 
 def parse_args():

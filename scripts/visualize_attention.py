@@ -18,10 +18,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import torch
-from src.utils.config import load_config
-from src.models import TinyOCT
-from src.data import OCT2017Dataset, get_val_transforms
-from src.evaluation import AttentionVisualizer
+from tinyoct.utils.config import load_config
+from tinyoct.models import TinyOCT
+from tinyoct.data import OCTDataModule
+from tinyoct.evaluation import Visualizer
 
 CLASS_NAMES = ["CNV", "DME", "DRUSEN", "NORMAL"]
 
@@ -42,17 +42,13 @@ def main():
     state = torch.load(args.checkpoint, map_location=device)
     model.load_state_dict(state["model_state"])
 
-    viz = AttentionVisualizer(model, device, args.output_dir)
+    viz = Visualizer(model, device, args.output_dir)
 
-    ds = OCT2017Dataset(
-        root=cfg.data.oct2017_path,
-        split="test",
-        transform=get_val_transforms(cfg.data.image_size),
-    )
-
-    # Collect n_samples per class
+    dm = OCTDataModule(cfg)
+    dm.setup("test")
+    val_loader = dm.val_dataloader()
     class_samples = {i: [] for i in range(4)}
-    for img, label in ds:
+    for img, label in val_loader:
         if len(class_samples[label]) < args.n_samples:
             class_samples[label].append((img, label))
         if all(len(v) >= args.n_samples for v in class_samples.values()):

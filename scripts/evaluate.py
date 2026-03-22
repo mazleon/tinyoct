@@ -12,12 +12,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import torch
-from src.utils.config import load_config
-from src.utils.seed import set_seed
-from src.models import TinyOCT
-from src.data import OCTDataModule
-from src.evaluation import Evaluator
-from src.training import TemperatureScaling
+from tinyoct.utils.config import load_config
+from tinyoct.utils.seed import set_seed
+from tinyoct.models import TinyOCT
+from tinyoct.data import OCTDataModule
+from tinyoct.evaluation import Evaluator
+from tinyoct.training import TemperatureScaling
 
 
 def main():

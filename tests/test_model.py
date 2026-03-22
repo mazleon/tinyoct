@@ -51,13 +51,13 @@ def make_cfg():
 # ── LaplacianLayer tests ──────────────────────────────────────────────────────
 class TestLaplacianLayer:
     def test_zero_parameters(self):
-        from src.models.laplacian import LaplacianLayer
+        from tinyoct.models.laplacian import LaplacianLayer
         layer = LaplacianLayer(alpha=0.1)
         n_params = sum(p.numel() for p in layer.parameters())
         assert n_params == 0, f"LaplacianLayer should have 0 params, got {n_params}"
 
     def test_output_shape(self):
-        from src.models.laplacian import LaplacianLayer
+        from tinyoct.models.laplacian import LaplacianLayer
         layer = LaplacianLayer()
         x = torch.randn(2, 3, 224, 224)
         out = layer(x)
@@ -68,7 +68,7 @@ class TestLaplacianLayer:
 class TestRLAPv3:
     def test_orientation_bank_zero_params(self):
         """CRITICAL: OrientationBank must have zero trainable parameters."""
-        from src.models.rlap import OrientationBank
+        from tinyoct.models.rlap import OrientationBank
         bank = OrientationBank(channels=96, height=7, width=7)
         n_params = sum(p.numel() for p in bank.parameters())
         assert n_params == 0, (
@@ -77,21 +77,21 @@ class TestRLAPv3:
         )
 
     def test_rlap_output_shape(self):
-        from src.models.rlap import RLAPv3
+        from tinyoct.models.rlap import RLAPv3
         rlap = RLAPv3(channels=96, height=7, width=7)
         x = torch.randn(4, 96, 7, 7)
         out = rlap(x)
         assert out.shape == x.shape, f"RLAP output shape mismatch: {out.shape}"
 
     def test_horizontal_only(self):
-        from src.models.rlap import RLAPv3
+        from tinyoct.models.rlap import RLAPv3
         rlap = RLAPv3(channels=96, horizontal=True, vertical=False, use_bank=False)
         x = torch.randn(2, 96, 7, 7)
         out = rlap(x)
         assert out.shape == x.shape
 
     def test_attention_maps_returned(self):
-        from src.models.rlap import RLAPv3
+        from tinyoct.models.rlap import RLAPv3
         rlap = RLAPv3(channels=96, height=7, width=7)
         x = torch.randn(1, 96, 7, 7)
         maps = rlap.get_attention_maps(x)
@@ -104,14 +104,14 @@ class TestRLAPv3:
 # ── PrototypeHead tests ───────────────────────────────────────────────────────
 class TestPrototypeHead:
     def test_output_shape(self):
-        from src.models.prototype_head import PrototypeHead
+        from tinyoct.models.prototype_head import PrototypeHead
         head = PrototypeHead(feature_dim=96, num_classes=4)
         x = torch.randn(8, 96)
         logits = head(x)
         assert logits.shape == (8, 4), f"Head output shape: {logits.shape}"
 
     def test_similarities_range(self):
-        from src.models.prototype_head import PrototypeHead
+        from tinyoct.models.prototype_head import PrototypeHead
         head = PrototypeHead(feature_dim=96, num_classes=4)
         x = torch.randn(4, 96)
         sims = head.get_similarities(x)
@@ -122,7 +122,7 @@ class TestPrototypeHead:
 class TestTinyOCT:
     @pytest.fixture
     def model(self):
-        from src.models.tinyoct import TinyOCT
+        from tinyoct.models.tinyoct import TinyOCT
         cfg = make_cfg()
         return TinyOCT(cfg)
 
@@ -146,7 +146,7 @@ class TestTinyOCT:
 # ── Loss tests ────────────────────────────────────────────────────────────────
 class TestLosses:
     def test_supcon_loss(self):
-        from src.losses.supcon_loss import BalancedSupConLoss
+        from tinyoct.losses.supcon_loss import BalancedSupConLoss
         loss_fn = BalancedSupConLoss()
         features = torch.randn(16, 96)
         labels = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3])
@@ -155,8 +155,8 @@ class TestLosses:
         assert not torch.isnan(loss), "SupCon loss is NaN"
 
     def test_orient_loss(self):
-        from src.models.tinyoct import TinyOCT
-        from src.losses.orient_loss import OrientationConsistencyLoss
+        from tinyoct.models.tinyoct import TinyOCT
+        from tinyoct.losses.orient_loss import OrientationConsistencyLoss
         cfg = make_cfg()
         model = TinyOCT(cfg)
         loss_fn = OrientationConsistencyLoss(angle_range=5.0)
