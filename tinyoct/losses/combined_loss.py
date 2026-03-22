@@ -29,11 +29,16 @@ class CombinedLoss(nn.Module):
         self.lambda_supcon = lc.supcon_weight   # λ₁ (default 0.1)
         self.lambda_orient = lc.orient_weight   # λ₂ (default 0.05)
 
-        # Cross-entropy (weighted for class imbalance)
-        device_weights = None
+        # Cross-entropy — weights stored as buffer so they move with .to(device)
         if class_weights is not None:
-            device_weights = torch.tensor(class_weights, dtype=torch.float32)
-        self.ce = nn.CrossEntropyLoss(weight=device_weights)
+            self.register_buffer(
+                "ce_weights",
+                torch.tensor(class_weights, dtype=torch.float32)
+            )
+        else:
+            self.ce_weights = None
+        # CE loss created without weights; weights applied dynamically in forward()
+        self.ce = nn.CrossEntropyLoss(weight=None)
 
         # Supervised contrastive
         self.supcon = BalancedSupConLoss(temperature=cfg.train.supcon.temperature)
@@ -65,7 +70,12 @@ class CombinedLoss(nn.Module):
         device = logits.device
 
         # ── L_CE ────────────────────────────────────────────────────
-        loss_ce = self.ce(logits, labels)
+        if self.ce_weights is not None:
+            loss_ce = nn.functional.cross_entropy(
+                logits, labels, weight=self.ce_weights.to(device)
+            )
+        else:
+            loss_ce = self.ce(logits, labels)
 
         # ── L_supcon ────────────────────────────────────────────────
         loss_sc = torch.tensor(0.0, device=device)

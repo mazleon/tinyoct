@@ -10,7 +10,7 @@ project:
 # ── Dataset ──────────────────────────────────────────────
 data:
   root: ./data
-  oct2017_path: ./data/OCT2017
+  oct2017_path: ./data/oct2017
   octmnist_path: ./data/medmnist
   octid_path: ./data/OCTID
   image_size: 224
@@ -82,7 +82,7 @@ checkpoint:
 
 # ── Logging ───────────────────────────────────────────────
 logging:
-  use_wandb: false              # set true to enable Weights & Biases
+  use_wandb: true              # Weights & Biases enabled — key read from .env
   wandb_project: tinyoct
   log_every_n_steps: 20
   output_dir: ./outputs

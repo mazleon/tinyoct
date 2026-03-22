@@ -1,0 +1,78 @@
+# ─────────────────────────────────────────────────────────
+#  TinyOCT — Smoke-Test Config (3 epochs, fast CPU check)
+# ─────────────────────────────────────────────────────────
+#  Usage: uv run scripts/train.py --config configs/smoketest.yaml
+# ─────────────────────────────────────────────────────────
+
+project:
+  name: tinyoct-smoketest
+  seed: 42
+  device: auto
+
+data:
+  root: ./data
+  oct2017_path: ./data/oct2017
+  octmnist_path: ./data/medmnist
+  octid_path: ./data/OCTID
+  image_size: 224
+  num_workers: 0          # 0 = single-process (avoids multiprocessing overhead)
+  pin_memory: false
+  classes: [CNV, DME, DRUSEN, NORMAL]
+  class_weights: [0.48, 1.60, 2.20, 0.72]
+
+model:
+  backbone: mobilenetv3_small_100
+  pretrained: true
+  feature_dim: 576
+  spatial_size: 7
+  num_classes: 4
+  rlap:
+    horizontal: true
+    vertical: true
+    orientation_bank: true
+    angles: [0, 30, 45, 60, 90, 135]
+    kernel_size: 3
+  prototype:
+    enabled: true
+    temperature: 0.07
+  laplacian:
+    enabled: true
+    alpha: 0.1
+
+train:
+  epochs: 3               # smoke-test: 3 epochs
+  batch_size: 32
+  num_workers: 0
+  optimizer: adamw
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  scheduler: cosine
+  warmup_epochs: 0
+  loss:
+    ce_weight: 1.0
+    supcon_weight: 0.1
+    orient_weight: 0.05
+    orient_angle_range: 5
+    orient_temperature: 2.0
+  supcon:
+    temperature: 0.07
+    balanced_sampling: true
+
+eval:
+  batch_size: 64
+  tta: false
+  tta_transforms: [hflip, brightness]
+  calibration: false
+
+checkpoint:
+  dir: ./checkpoints/smoketest
+  save_every_epoch: false
+  save_best: true
+  monitor: macro_f1
+  mode: max
+
+logging:
+  use_wandb: true
+  wandb_project: tinyoct
+  log_every_n_steps: 10
+  output_dir: ./outputs
