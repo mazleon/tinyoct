@@ -1,4 +1,4 @@
 from .evaluator import Evaluator
-from .visualizer import AttentionVisualizer
+from .visualizer import Visualizer
 
-__all__ = ["Evaluator", "AttentionVisualizer"]
+__all__ = ["Evaluator", "Visualizer"]

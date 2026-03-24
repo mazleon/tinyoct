@@ -5,6 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "grad-cam>=1.5.5",
+    "matplotlib>=3.10.8",
     "medmnist>=3.0.2",
     "monai>=1.5.2",
     "omegaconf>=2.3.0",

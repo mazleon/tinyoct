@@ -39,18 +39,22 @@ def main():
     device = torch.device("cpu")  # attention viz always on CPU
 
     model = TinyOCT(cfg)
-    state = torch.load(args.checkpoint, map_location=device)
+    state = torch.load(args.checkpoint, map_location=device, weights_only=False)
     model.load_state_dict(state["model_state"])
 
     viz = Visualizer(model, device, args.output_dir)
 
     dm = OCTDataModule(cfg)
-    dm.setup("test")
+    dm.setup()
     val_loader = dm.val_dataloader()
     class_samples = {i: [] for i in range(4)}
-    for img, label in val_loader:
-        if len(class_samples[label]) < args.n_samples:
-            class_samples[label].append((img, label))
+    for imgs, labels in val_loader:
+        for img, label in zip(imgs, labels):
+            lbl_idx = int(label.item())
+            if len(class_samples[lbl_idx]) < args.n_samples:
+                class_samples[lbl_idx].append((img, lbl_idx))
+            if all(len(v) >= args.n_samples for v in class_samples.values()):
+                break
         if all(len(v) >= args.n_samples for v in class_samples.values()):
             break
 

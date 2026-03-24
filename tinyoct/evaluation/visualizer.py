@@ -29,7 +29,7 @@ except ImportError:
 CLASS_NAMES = ["CNV", "DME", "DRUSEN", "NORMAL"]
 
 
-class AttentionVisualizer:
+class Visualizer:
     def __init__(self, model, device, output_dir: str = "./outputs/figures"):
         self.model = model.to(device)
         self.device = device
@@ -58,10 +58,12 @@ class AttentionVisualizer:
         img_np = (img_np - img_np.min()) / (img_np.max() - img_np.min() + 1e-8)
 
         fig, axes = plt.subplots(1, 4, figsize=(16, 4))
-        titles = ["Original", "Horizontal
-(layer thickness)", "Vertical
-(lesion columns)", "Oblique 45°+60°
-(Bruch's membrane)"]
+        titles = [
+            "Original",
+            "Horizontal\n(layer thickness)",
+            "Vertical\n(lesion columns)",
+            "Oblique 45°+60°\n(Bruch's membrane)"
+        ]
 
         # Panel 0: Original
         axes[0].imshow(img_np, cmap="gray")
@@ -69,10 +71,9 @@ class AttentionVisualizer:
 
         # Panel 1: Horizontal stream
         if "horizontal" in attn_maps:
-            h_map = attn_maps["horizontal"][0].mean(0).squeeze().cpu().numpy()
-            h_map = (h_map - h_map.min()) / (h_map.max() - h_map.min() + 1e-8)
+            h_map = attn_maps["horizontal"][0].mean(0).cpu()  # [H, 1]
             h_resized = torch.nn.functional.interpolate(
-                torch.tensor(h_map).unsqueeze(0).unsqueeze(0),
+                h_map.unsqueeze(0).unsqueeze(0),
                 size=img_np.shape[:2], mode="bilinear"
             ).squeeze().numpy()
             axes[1].imshow(img_np, cmap="gray", alpha=0.4)
@@ -81,10 +82,9 @@ class AttentionVisualizer:
 
         # Panel 2: Vertical stream
         if "vertical" in attn_maps:
-            v_map = attn_maps["vertical"][0].mean(0).squeeze().cpu().numpy()
-            v_map = (v_map - v_map.min()) / (v_map.max() - v_map.min() + 1e-8)
+            v_map = attn_maps["vertical"][0].mean(0).cpu()  # [1, W]
             v_resized = torch.nn.functional.interpolate(
-                torch.tensor(v_map).unsqueeze(0).unsqueeze(0),
+                v_map.unsqueeze(0).unsqueeze(0),
                 size=img_np.shape[:2], mode="bilinear"
             ).squeeze().numpy()
             axes[2].imshow(img_np, cmap="gray", alpha=0.4)
