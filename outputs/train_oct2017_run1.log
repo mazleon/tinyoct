@@ -1,0 +1,93 @@
+TRAIN_START:Sat Mar 28 17:42:22 UTC 2026
+Device: cuda
+Seed set to 42
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Unexpected keys (classifier.bias, classifier.weight, conv_head.bias, conv_head.weight) found while loading pretrained weights. This may be expected if model is being adapted.
+
+Model parameters: 935,073 total | 934,608 trainable
+RLAP parameters:  5,760
+wandb: [wandb.login()] Loaded credentials for https://api.wandb.ai from WANDB_API_KEY.
+wandb: Currently logged in as: xtleon-xl (xtleon-xl-united-international-university) to https://api.wandb.ai. Use `wandb login --relogin` to force relogin
+wandb: setting up run bm07pyqi
+wandb: Tracking run with wandb version 0.25.1
+wandb: Run data is saved locally in /workspace/tinyoct/wandb/run-20260328_174259-bm07pyqi
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run tinyoct
+wandb: ⭐️ View project at https://wandb.ai/xtleon-xl-united-international-university/tinyoct
+wandb: 🚀 View run at https://wandb.ai/xtleon-xl-united-international-university/tinyoct/runs/bm07pyqi
+W&B run started: https://wandb.ai/xtleon-xl-united-international-university/tinyoct/runs/bm07pyqi
+
+Starting training for 30 epochs on cuda
+  Dataset: OCT2017  |  Train: 83,484  |  Val: 500
+  Class distribution (train): {'CNV': 37205, 'DME': 11348, 'DRUSEN': 8616, 'NORMAL': 26315}
+Epoch   1/30  loss=0.0099  acc=0.867  val_acc=0.992  val_f1=0.992  CNV=0.988  DME=1.000  (48.3s)
+  ✓ New best (macro_f1=0.9920) — saved checkpoints/best.pth
+Epoch   2/30  loss=0.0087  acc=0.901  val_acc=0.984  val_f1=0.984  CNV=0.975  DME=0.980  (44.3s)
+Epoch   3/30  loss=0.0081  acc=0.914  val_acc=0.990  val_f1=0.990  CNV=0.980  DME=0.996  (46.3s)
+Epoch   4/30  loss=0.0078  acc=0.920  val_acc=0.998  val_f1=0.998  CNV=0.996  DME=1.000  (44.6s)
+  ✓ New best (macro_f1=0.9980) — saved checkpoints/best.pth
+Epoch   5/30  loss=0.0076  acc=0.924  val_acc=0.996  val_f1=0.996  CNV=0.996  DME=0.996  (46.8s)
+Epoch   6/30  loss=0.0074  acc=0.932  val_acc=0.988  val_f1=0.988  CNV=0.976  DME=0.996  (45.6s)
+Epoch   7/30  loss=0.0073  acc=0.934  val_acc=0.994  val_f1=0.994  CNV=0.992  DME=1.000  (44.4s)
+Epoch   8/30  loss=0.0071  acc=0.939  val_acc=0.994  val_f1=0.994  CNV=0.988  DME=0.996  (42.8s)
+Epoch   9/30  loss=0.0070  acc=0.940  val_acc=0.998  val_f1=0.998  CNV=0.996  DME=1.000  (44.5s)
+Epoch  10/30  loss=0.0068  acc=0.943  val_acc=0.996  val_f1=0.996  CNV=0.996  DME=1.000  (45.4s)
+Epoch  11/30  loss=0.0067  acc=0.946  val_acc=0.996  val_f1=0.996  CNV=0.992  DME=0.996  (45.2s)
+Epoch  12/30  loss=0.0066  acc=0.949  val_acc=0.998  val_f1=0.998  CNV=1.000  DME=1.000  (43.1s)
+Epoch  13/30  loss=0.0064  acc=0.953  val_acc=0.998  val_f1=0.998  CNV=0.996  DME=1.000  (42.8s)
+Epoch  14/30  loss=0.0064  acc=0.954  val_acc=1.000  val_f1=1.000  CNV=1.000  DME=1.000  (44.6s)
+  ✓ New best (macro_f1=1.0000) — saved checkpoints/best.pth
+Epoch  15/30  loss=0.0062  acc=0.957  val_acc=1.000  val_f1=1.000  CNV=1.000  DME=1.000  (44.5s)
+Epoch  16/30  loss=0.0062  acc=0.958  val_acc=0.996  val_f1=0.996  CNV=0.996  DME=1.000  (43.3s)
+Epoch  17/30  loss=0.0060  acc=0.961  val_acc=0.996  val_f1=0.996  CNV=0.992  DME=1.000  (44.3s)
+Epoch  18/30  loss=0.0059  acc=0.964  val_acc=1.000  val_f1=1.000  CNV=1.000  DME=1.000  (44.2s)
+Epoch  19/30  loss=0.0059  acc=0.965  val_acc=0.998  val_f1=0.998  CNV=0.996  DME=1.000  (44.9s)
+Epoch  20/30  loss=0.0058  acc=0.967  val_acc=1.000  val_f1=1.000  CNV=1.000  DME=1.000  (43.4s)
+Epoch  21/30  loss=0.0057  acc=0.969  val_acc=1.000  val_f1=1.000  CNV=1.000  DME=1.000  (43.3s)
+Epoch  22/30  loss=0.0056  acc=0.970  val_acc=1.000  val_f1=1.000  CNV=1.000  DME=1.000  (42.7s)
+Epoch  23/30  loss=0.0055  acc=0.973  val_acc=0.998  val_f1=0.998  CNV=0.996  DME=1.000  (43.0s)
+Epoch  24/30  loss=0.0055  acc=0.973  val_acc=1.000  val_f1=1.000  CNV=1.000  DME=1.000  (44.5s)
+Epoch  25/30  loss=0.0055  acc=0.975  val_acc=1.000  val_f1=1.000  CNV=1.000  DME=1.000  (44.7s)
+Epoch  26/30  loss=0.0054  acc=0.976  val_acc=1.000  val_f1=1.000  CNV=1.000  DME=1.000  (43.6s)
+Epoch  27/30  loss=0.0053  acc=0.977  val_acc=1.000  val_f1=1.000  CNV=1.000  DME=1.000  (42.9s)
+Epoch  28/30  loss=0.0053  acc=0.978  val_acc=1.000  val_f1=1.000  CNV=1.000  DME=1.000  (43.8s)
+Epoch  29/30  loss=0.0053  acc=0.977  val_acc=1.000  val_f1=1.000  CNV=1.000  DME=1.000  (47.0s)
+Epoch  30/30  loss=0.0053  acc=0.978  val_acc=1.000  val_f1=1.000  CNV=1.000  DME=1.000  (47.0s)
+
+Training complete.
+wandb: uploading artifact run-bm07pyqi-valconfusion_matrix_epoch_030-P7sXeg; updating run metadata
+wandb: uploading artifact run-bm07pyqi-valconfusion_matrix_epoch_030-P7sXeg
+wandb: uploading history steps 815-819, summary, console lines 37-39
+wandb: 
+wandb: Run history:
+wandb: dataset/train_total ▁
+wandb:   dataset/val_total ▁
+wandb:               epoch ▁▁▁▂▂▂▂▃▃▃▃▄▄▄▄▅▅▅▅▆▆▆▆▇▇▇▇███
+wandb:      train/accuracy ▁▃▄▄▅▅▅▆▆▆▆▆▆▇▇▇▇▇▇▇▇█████████
+wandb:       train/ce_loss █▆▅▅▅▄▄▄▄▃▃▃▃▃▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁
+wandb:          train/loss █▆▅▅▄▄▄▄▃▃▃▃▃▃▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁
+wandb:            train/lr █████▇▇▇▆▆▆▆▆▆▆▅▅▅▄▄▄▃▃▃▃▃▃▃▂▂▁▁▁▁▁▁▁▁▁▁
+wandb:   train/orient_loss █▆▄▅▃▃▄▃▂▃▃▃▂▃▂▂▃▃▃▁▂▂▂▁▂▂▂▁▁▁
+wandb:  train/step_ce_loss █▃▄▇▃▄▄▂▂▄▄▃▂▆▃▅▄▃▁▂▂▄▃▁▃▂▂▂▂▃▁▄▁▁▁▂▁▁▂▂
+wandb:     train/step_loss █▄▅▃▄▂▄▄▅▂▄▂▃▄▃▄▂▃▃▃▃▁▃▂▂▁▁▁▃▁▂▆▁▁▂▂▂▂▁▁
+wandb:                 +12 ...
+wandb: 
+wandb: Run summary:
+wandb:     dataset/train_total 83484
+wandb:       dataset/val_total 500
+wandb:                   epoch 30
+wandb:     final/best_macro_f1 1
+wandb:      final/val_accuracy 1
+wandb:     final/val_macro_auc 1
+wandb:      final/val_macro_f1 1
+wandb:   model/backbone_params 927008
+wandb:       model/head_params 2304
+wandb: model/rlap_overhead_pct 0.616
+wandb:                     +22 ...
+wandb: 
+wandb: 🚀 View run tinyoct at: https://wandb.ai/xtleon-xl-united-international-university/tinyoct/runs/bm07pyqi
+wandb: ⭐️ View project at: https://wandb.ai/xtleon-xl-united-international-university/tinyoct
+wandb: Synced 5 W&B file(s), 8 media file(s), 22 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20260328_174259-bm07pyqi/logs
+W&B run finished. Results at: https://wandb.ai/tinyoct
+TRAIN_DONE:Sat Mar 28 18:05:33 UTC 2026
