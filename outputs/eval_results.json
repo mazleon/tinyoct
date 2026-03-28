@@ -1,0 +1,45 @@
+{
+  "checkpoint": "checkpoints/best.pth",
+  "calibrated": true,
+  "n_test_samples": 500,
+  "overall": {
+    "accuracy": 0.996,
+    "macro_f1": 0.996,
+    "macro_auc": 0.999997,
+    "micro_auc": 0.999948,
+    "ece": 0.004837,
+    "dme_cnv_confusion_rate": 0.004
+  },
+  "per_class_f1": {
+    "CNV": 0.995984,
+    "DME": 0.996016,
+    "DRUSEN": 0.996016,
+    "NORMAL": 0.995984
+  },
+  "per_class_auc": {
+    "CNV": 1.0,
+    "DME": 1.0,
+    "DRUSEN": 0.999979,
+    "NORMAL": 1.0
+  },
+  "per_class_precision": {
+    "CNV": 1.0,
+    "DME": 0.992063,
+    "DRUSEN": 0.992063,
+    "NORMAL": 1.0
+  },
+  "per_class_recall": {
+    "CNV": 0.992,
+    "DME": 1.0,
+    "DRUSEN": 1.0,
+    "NORMAL": 0.992
+  },
+  "model": {
+    "total_params": 935073,
+    "trainable_params": 934608,
+    "rlap_params": 5760,
+    "head_params": 2304,
+    "backbone_params": 927008,
+    "cpu_ms_per_image": 104.79
+  }
+}

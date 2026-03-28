@@ -15,7 +15,8 @@ def load_config(path: str):
     if OMEGACONF:
         raw = OmegaConf.load(path)
         # Resolve 'defaults' list: load each base and merge in order
-        defaults = OmegaConf.to_container(raw.get("defaults", []), resolve=False)
+        raw_defaults = raw.get("defaults", [])
+        defaults = OmegaConf.to_container(raw_defaults, resolve=False) if OmegaConf.is_config(raw_defaults) else (raw_defaults if raw_defaults else [])
         if defaults:
             base_cfg = OmegaConf.create({})
             for entry in defaults:

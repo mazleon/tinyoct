@@ -30,7 +30,6 @@ data/
 checkpoints/
 *.jpeg
 *.jpg
-*.png
 *.npz
 *.pt
 *.pth
@@ -70,5 +69,11 @@ uv.lock
 .env
 .env.*
 
-# Paper
-paper/
+# Paper — ignore PDFs and large raw assets, but track generated figures and results
+paper/*.pdf
+paper/figures/*.npz
+# allow paper/figures/*.png (committed figures)
+
+# outputs — ignore logs and raw predictions, track JSON results
+outputs/*
+!outputs/eval_results.json
