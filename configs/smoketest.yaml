@@ -15,8 +15,8 @@ data:
   octmnist_path: ./data/medmnist
   octid_path: ./data/OCTID
   image_size: 224
-  num_workers: 0          # 0 = single-process (avoids multiprocessing overhead)
-  pin_memory: false
+  num_workers: 4          # use workers for parallel IO
+  pin_memory: true
   classes: [CNV, DME, DRUSEN, NORMAL]
   class_weights: [0.48, 1.60, 2.20, 0.72]
 
@@ -41,8 +41,8 @@ model:
 
 train:
   epochs: 3               # smoke-test: 3 epochs
-  batch_size: 32
-  num_workers: 0
+  batch_size: 64
+  num_workers: 4
   optimizer: adamw
   lr: 1.0e-3
   weight_decay: 1.0e-4
