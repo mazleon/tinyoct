@@ -22,8 +22,15 @@ class Evaluator:
         self.device = device
 
     @torch.no_grad()
-    def evaluate(self, loader, desc: str = "test") -> dict:
-        """Full evaluation on a dataloader."""
+    def evaluate(self, loader, desc: str = "test", save_preds: str = None) -> dict:
+        """Full evaluation on a dataloader.
+
+        Args:
+            loader: DataLoader to evaluate on.
+            desc: Description string for logging.
+            save_preds: Optional path (.npz) to save raw labels and probabilities
+                        for downstream figure generation (e.g., ROC curves).
+        """
         self.model.eval()
         all_preds, all_labels, all_probs = [], [], []
 
@@ -35,6 +42,18 @@ class Evaluator:
             all_preds.extend(preds.cpu().tolist())
             all_labels.extend(y.cpu().tolist())
             all_probs.extend(probs.cpu().numpy().tolist())
+
+        if save_preds is not None:
+            import numpy as np
+            Path(save_preds).parent.mkdir(parents=True, exist_ok=True)
+            np.savez(
+                save_preds,
+                labels=np.array(all_labels),
+                probs=np.array(all_probs),
+                preds=np.array(all_preds),
+                class_names=CLASS_NAMES,
+            )
+            print(f"Saved predictions to {save_preds}")
 
         metrics = compute_metrics(all_labels, all_preds, all_probs)
 

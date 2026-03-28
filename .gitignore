@@ -69,3 +69,6 @@ uv.lock
 # Env
 .env
 .env.*
+
+# Paper
+paper/

@@ -26,6 +26,8 @@ def main():
     p.add_argument("--config", default="configs/base.yaml")
     p.add_argument("--ood", action="store_true", help="Cross-scanner OOD evaluation on OCTID")
     p.add_argument("--calibrate", action="store_true", help="Apply temperature scaling first")
+    p.add_argument("--save-preds", metavar="PATH", default=None,
+                   help="Save labels/probs/preds to a .npz file for ROC figure generation")
     args = p.parse_args()
 
     cfg = load_config(args.config)
@@ -50,9 +52,11 @@ def main():
 
     if args.ood:
         dm.setup_ood()
-        evaluator.evaluate(dm.ood_dataloader(), desc="OCTID cross-scanner OOD")
+        evaluator.evaluate(dm.ood_dataloader(), desc="OCTID cross-scanner OOD",
+                           save_preds=args.save_preds)
     else:
-        evaluator.evaluate(dm.test_dataloader(), desc="OCT2017 test set")
+        evaluator.evaluate(dm.test_dataloader(), desc="OCT2017 test set",
+                           save_preds=args.save_preds)
 
     evaluator.measure_inference_speed()
     evaluator.count_params_flops()
