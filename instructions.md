@@ -1,161 +1,270 @@
-# TinyOCT — Operational Guidelines & Instructions
+# TinyOCT — Operational Guide
 
-This document provides a comprehensive guide for developers and researchers to set up, configure, and execute the TinyOCT project for retinal OCT classification.
+Comprehensive setup, training, evaluation, and figure-generation instructions for the TinyOCT project.
+Target: ISBI 2026 / BMC Medical Imaging submission.
 
 ---
 
-## 🚀 1. Environment Setup
+## 1. Environment Setup
 
 ### 1.1 Prerequisites
 
-- **Python Manager**: We use `uv` for lightning-fast, reproducible dependency management.
-  - Install `uv`: [https://docs.astral.sh/uv/getting-started/installation/](https://docs.astral.sh/uv/getting-started/installation/)
-- **Weights & Biases (W&B)**: Used for experiment tracking and logging.
-  - Create a free account at [wandb.ai](https://wandb.ai).
+- **Python 3.13** via `uv` (handles virtualenv and dependencies automatically)
+  - Install `uv`: https://docs.astral.sh/uv/getting-started/installation/
+- **Weights & Biases** (optional but recommended for experiment tracking)
+  - Free account at https://wandb.ai
 
 ### 1.2 Initialize Environment
 
 ```bash
-# Clone the repository
 git clone https://github.com/mazleon/tinyoct.git
 cd tinyoct
-
-# Sync dependencies (creates .venv automatically)
 uv sync
 ```
 
 ### 1.3 Configure Secrets
 
-Create a `.env` file in the project root to store your W&B credentials:
+Create a `.env` file in the project root:
 
 ```bash
-# .env
 WANDB_API_KEY=your_wandb_api_key_here
 WANDB_PROJECT=tinyoct
+WANDB_ENTITY=your_username_or_team
 ```
+
+Set `logging.use_wandb: false` in your config to disable W&B entirely (e.g., for offline runs).
 
 ---
 
-## 📊 2. Dataset Management
+## 2. Dataset Management
 
 ### 2.1 Supported Datasets
 
-The project supports three primary datasets:
-1. **OCT2017 (Kermany 2018)**: Primary large-scale dataset (~84K images).
-2. **OCTMNIST (MedMNIST v2)**: 224×224 normalized version (~109K images).
-3. **OCTID**: Small clinical dataset (500 images) used for cross-scanner OOD validation.
+| Dataset | Images | Role |
+|---------|--------|------|
+| **OCT2017** (Kermany 2018) | ~84K | Primary train/val/test |
+| **OCTMNIST** (MedMNIST v2) | ~109K | 224×224 robustness validation |
+| **OCTID** | 500 | Cross-scanner OOD — never train on this |
 
-### 2.2 Download & Preparation
+### 2.2 Download Instructions
 
+**OCTMNIST** — auto-downloaded:
 ```bash
-# Auto-download OCTMNIST (224x224 version)
 uv run scripts/download_datasets.py
 ```
 
-For **OCT2017**, download the 2GB archive from [Kaggle](https://www.kaggle.com/datasets/paultimothymooney/kermany2018) and place it in `data/oct2017/`.
+**OCT2017** — manual download required:
+1. Download the `~2GB` archive from https://www.kaggle.com/datasets/paultimothymooney/kermany2018
+2. Extract and place under `data/oct2017/` following the structure below.
 
-### 2.3 Directory Structure
+**OCTID** — manual download required:
+1. Download from https://dataverse.scholarsportal.info/dataverse/OCTID
+2. Place under `data/OCTID/`.
 
-Ensure your `data/` directory follows this structure:
+### 2.3 Required Data Directory Structure
 
-```text
+```
 data/
 ├── oct2017/
-│   ├── train/  (CNV, DME, DRUSEN, NORMAL)
-│   ├── val/    (125 images per class, stratified from test)
-│   └── test/   (remaining 125 images per class)
+│   ├── train/
+│   │   ├── CNV/
+│   │   ├── DME/
+│   │   ├── DRUSEN/
+│   │   └── NORMAL/
+│   ├── val/
+│   │   └── (same four subdirs — 125 images per class, stratified)
+│   └── test/
+│       └── (same four subdirs)
 ├── medmnist/
 │   └── octmnist_224.npz
 └── OCTID/
-    └── (NORMAL, DR, AMD)
+    ├── NORMAL/
+    ├── DR/        (→ mapped to DME)
+    ├── AMD/       (→ mapped to CNV)
+    └── CSR/       (→ mapped to DRUSEN; MH class excluded)
 ```
 
 ---
 
-## ⚙️ 3. Configuration & Parameters
+## 3. Configuration
 
-All experiment settings are controlled via YAML files in the `configs/` directory.
+All hyperparameters live in `configs/`. Never hardcode values in scripts.
 
-### 3.1 Key Parameters to Adjust
+| File | Purpose |
+|------|---------|
+| `configs/base.yaml` | Master config — all default hyperparameters |
+| `configs/ablation.yaml` | R0–R5 ablation overrides (paper Table 2) |
+| `configs/experiment_oct2017.yaml` | Full 30-epoch run on OCT2017 |
+| `configs/experiment_crossscanner.yaml` | OCTID OOD evaluation config |
+| `configs/smoketest.yaml` | 3-epoch quick pipeline check (OCT2017) |
+| `configs/smoketest_octmnist.yaml` | 3-epoch quick pipeline check (OCTMNIST) |
 
-Open `configs/base.yaml` or `configs/smoketest.yaml` to modify:
-- **`data.dataset`**: Set to `oct2017` or `octmnist`.
-- **`train.epochs`**: Number of training iterations (default: 30).
-- **`train.batch_size`**: Image count per batch (default: 64).
-- **`train.lr`**: Learning rate (default: 1.0e-3).
-- **`train.loss`**: Relative weights for the three loss terms (`ce_weight`, `supcon_weight`, `orient_weight`).
-- **`logging.use_wandb`**: Set `true` to enable online tracking.
+### Key Parameters to Adjust
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `data.dataset` | `oct2017` | Switch to `octmnist` for MedMNIST runs |
+| `train.epochs` | `30` | Full training epochs |
+| `train.batch_size` | `64` | Reduce if OOM; BalancedBatchSampler requires ≥4 per class |
+| `train.lr` | `1.0e-3` | AdamW learning rate |
+| `train.loss.supcon_weight` | `0.1` | SupCon loss weight λ₁ |
+| `train.loss.orient_weight` | `0.05` | Orientation consistency loss weight λ₂ |
+| `logging.use_wandb` | `true` | Disable for offline runs |
+| `train.seed` | `42` | Fixed for all research runs — do not change |
 
 ---
 
-## 🏗️ 4. Training & Validation
+## 4. Training
 
-### 4.1 Running a Smoke Test
+### 4.1 Smoke Test — Run First
 
-Always run a 3-epoch smoke test first to verify the pipeline:
+Always run a smoke test before committing to a full training run:
 
 ```bash
-# For OCT2017
+# OCT2017
 uv run scripts/train.py --config configs/smoketest.yaml
 
-# For OCTMNIST
+# OCTMNIST
 uv run scripts/train.py --config configs/smoketest_octmnist.yaml
 ```
 
+Expected output: 3 epochs complete, checkpoint saved under `checkpoints/smoketest/`, no shape errors.
+
 ### 4.2 Full Training
 
-Execute the main training script with the base configuration:
-
 ```bash
-uv run scripts/train.py --config configs/base.yaml
+# Full model (R5) on OCT2017
+uv run scripts/train.py --config configs/experiment_oct2017.yaml
 ```
 
-### 4.3 Validation Split Logic
+Checkpoints saved to `checkpoints/` with naming `epoch_{N:03d}_{run_name}.pth`. Best checkpoint tracked by `val_macro_f1`.
 
-The project uses a stratified split. If you update the dataset, use the integrated logic in `scripts/download_datasets.py` or the manual split tool I used to ensure a balanced 500-sample validation set.
+### 4.3 Single Ablation Run
+
+```bash
+# Example: R2 (RLAP horizontal + vertical only)
+uv run scripts/train.py --config configs/base.yaml --ablation R2_rlap_hv
+```
+
+### 4.4 Full Ablation Study (Paper Table 2)
+
+```bash
+uv run scripts/run_ablations.py
+```
+
+Runs R0 → R5 sequentially. Results saved to `outputs/ablation_results.json`. Each run uses seed=42.
 
 ---
 
-## 📈 5. Evaluation & Visualization
+## 5. Evaluation
 
-### 5.1 Model Evaluation
-
-Evaluate a trained checkpoint for accuracy, F1-score, and calibration (ECE):
+### 5.1 Standard Test-Set Evaluation
 
 ```bash
-uv run scripts/evaluate.py --checkpoint checkpoints/best.pth --calibrate
+# Evaluate + apply temperature calibration; save predictions for figure generation
+uv run scripts/evaluate.py --checkpoint checkpoints/best.pth --calibrate \
+    --save-preds outputs/predictions.npz
 ```
 
-### 5.2 OOD Evaluation (Cross-Scanner)
+The `--save-preds` flag writes `labels`, `probs`, `preds`, and `class_names` to a `.npz` file. This file is required for generating real ROC curves (Section 6.2).
 
-Test the model's robustness on the unseen OCTID dataset:
+### 5.2 Cross-Scanner OOD Evaluation (OCTID)
 
 ```bash
-uv run scripts/evaluate.py --checkpoint checkpoints/best.pth --ood
+uv run scripts/evaluate.py --checkpoint checkpoints/best.pth --ood \
+    --save-preds outputs/predictions_ood.npz
 ```
 
-### 5.3 Attention Visualization (Week 7 Key Figure)
+**Rule:** OCTID must never be used for training or fine-tuning. Only load it via `dm.setup_ood()` and `dm.ood_dataloader()`.
 
-Generate the paper's "Acceptance Figure" showing where each RLAP stream focuses:
+### 5.3 Reported Metrics
 
-```bash
-uv run scripts/visualize_attention.py --checkpoint checkpoints/best.pth
-```
-
-Figures will be saved in `outputs/figures/`.
+Every evaluation run must report:
+- Overall Accuracy, Macro F1, Per-class F1
+- Macro-AUC (one-vs-rest)
+- **DME↔CNV confusion rate** — the primary clinical validity metric
+- ECE (Expected Calibration Error) — required for clinical deployment framing
+- Parameter count, FLOPs, CPU inference time (<5ms target)
 
 ---
 
-## 🧪 6. Testing & Maintenance
+## 6. Figure Generation
 
-Run the unit test suite after any architectural changes to ensure RLAP stream dimensions and parameter counts remain correct:
+### 6.1 GradCAM++ Attention Overlays (Paper Figure 3 — Acceptance-Critical)
+
+```bash
+uv run scripts/visualize_attention.py --checkpoint checkpoints/best.pth --n_samples 4
+```
+
+Output saved to `outputs/test_figures/`. This figure must show:
+- **Oblique/orientation stream** activating on CNV lesion regions
+- **Vertical stream** activating on DME fluid columns
+- **Horizontal stream** activating on Drusen layer patterns
+
+If this alignment is not visible, the anatomical motivation of RLAP is not empirically supported. Raise this as a blocker before writing the results section.
+
+### 6.2 ROC Curves (Paper Figure 4)
+
+ROC curves must be generated from real model predictions. First save predictions during evaluation (Section 5.1), then:
+
+```bash
+uv run scripts/generate_roc.py \
+    --preds outputs/predictions.npz \
+    --out paper/figures/roc_curve.png
+```
+
+For OOD ROC:
+```bash
+uv run scripts/generate_roc.py \
+    --preds outputs/predictions_ood.npz \
+    --out paper/figures/roc_curve_ood.png
+```
+
+### 6.3 Laplacian Preprocessing Visualisation
+
+```bash
+uv run scripts/plot_laplacian.py
+```
+
+Shows: original image → Laplacian edges → residual output. Use for the Appendix or supplementary material to justify LaplacianLayer design.
+
+### 6.4 Dataset Sample Grid
+
+```bash
+uv run scripts/plot_oct_samples.py
+```
+
+Generates a grid of sample images per class. Useful for the Data section of the paper.
+
+---
+
+## 7. Unit Tests
+
+Run after any change to model architecture, data loading, or loss functions:
 
 ```bash
 uv run pytest tinyoct/tests/ -v
 ```
 
-### Critical Rules for Model Implementation
+### Critical Assertions Enforced by Tests
 
-1. **Explicit Shapes**: Always document tensor dimensions in code comments.
-2. **Determinism**: Keep `seed: 42` for all research runs.
-3. **Loss Monitoring**: Monitor all three loss terms (`L_CE`, `L_sc`, `L_or`) separately in W&B.
+- `LaplacianLayer` has **0 trainable parameters**
+- `OrientationBank` has **0 trainable parameters** (all angles are `register_buffer`)
+- RLAP H+V streams have ~3456 parameters total (1D convs only)
+- `PrototypeHead` output range is in `[-1, 1]` (cosine similarity)
+- Full model has `<5M` total parameters
+- Output shape is `[B, num_classes]` with `num_classes=4`
+
+---
+
+## 8. Implementation Rules
+
+These rules define the scientific validity of the project. Violating them weakens the paper's claims.
+
+1. **Zero-Parameter Rule:** All RLAP directional masks must use `register_buffer`. Do not introduce learnable layers (`nn.Linear`, `nn.Conv2d`) into the orientation bank. The zero-parameter claim is a core novelty.
+2. **No Isotropic Attention:** Do not use SE blocks, CBAM, or global average pooling as attention mechanisms inside RLAP. Isotropic mechanisms directly undermine the directional prior claim.
+3. **Parameter Budget:** Total model must remain ~3.2M parameters. CPU inference must remain <5ms at batch size 1.
+4. **Seed Discipline:** All research runs use `seed: 42`. Never run ablation comparisons with different seeds.
+5. **Tensor Shape Comments:** Document `[B, C, H, W]` shapes in inline comments on every significant tensor operation in model modules.
+6. **Loss Monitoring:** Log `L_CE`, `L_SupCon`, and `L_Orient` as separate W&B scalars. If any loss term diverges, the combined loss cannot be trusted.
+7. **OCTID is OOD-only:** No fine-tuning, no validation on OCTID. Its value is as a held-out cross-scanner test.
