@@ -74,7 +74,8 @@ class FocalLoss(nn.Module):
         # Normalization mirrors PyTorch CrossEntropyLoss(weight=...):
         #   divide by sum(alpha_t) so that gamma=0 reduces exactly to weighted CE.
         if self.class_weights is not None:
-            alpha_t = self.class_weights[labels]   # [B]
+            # Move weights to same device as labels (handles CPU→CUDA transfer)
+            alpha_t = self.class_weights.to(labels.device)[labels]  # [B]
             loss = alpha_t * loss
             return loss.sum() / alpha_t.sum()
         else:

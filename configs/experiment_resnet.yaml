@@ -1,0 +1,49 @@
+# ─────────────────────────────────────────────────────────
+#  ResNet18 Baseline — Full 30-Epoch Experiment
+# ─────────────────────────────────────────────────────────
+#  Usage: uv run scripts/train.py --config configs/experiment_resnet.yaml --model resnet18
+# ─────────────────────────────────────────────────────────
+defaults:
+  - base
+
+project:
+  name: resnet18-oct2017
+
+data:
+  dataset: oct2017
+
+model:
+  architecture: resnet18
+  backbone: resnet18
+  feature_dim: 512
+  # Disable all TinyOCT-specific components
+  rlap:
+    horizontal: false
+    vertical: false
+    orientation_bank: false
+    focal_spot: false
+  prototype:
+    enabled: false
+  laplacian:
+    enabled: false
+
+train:
+  epochs: 30
+  batch_size: 192        # ResNet18 has no orient double-forward, can go higher safely
+  num_workers: 16        # 128 CPU cores available
+  lr: 1.7e-3             # sqrt-scaling: 1e-3 × sqrt(192/64) ≈ 1.73e-3
+  warmup_epochs: 3
+  loss:
+    supcon_weight: 0.0
+    orient_weight: 0.0
+    focal_gamma: 0.0
+  supcon:
+    balanced_sampling: false
+    margin: 0.0
+
+checkpoint:
+  dir: ./checkpoints/resnet18
+
+logging:
+  use_wandb: true
+  wandb_project: tinyoct
