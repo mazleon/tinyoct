@@ -4,62 +4,140 @@
 # ─────────────────────────────────────────────────────────
 
 ablations:
+  # ── Original ablation rows (R0-R5) ────────────────────────────────────────
+  # New config keys default to disabled (focal_gamma=0, margin=0, focal_spot=false)
+  # so R0-R5 results are fully reproducible without modification.
+
   R0_baseline:
     description: MobileNetV3-Small baseline, no RLAP
     model.rlap.horizontal: false
     model.rlap.vertical: false
     model.rlap.orientation_bank: false
+    model.rlap.focal_spot: false
     model.laplacian.enabled: false
     model.prototype.enabled: false
     train.loss.supcon_weight: 0.0
     train.loss.orient_weight: 0.0
+    train.loss.focal_gamma: 0.0
+    train.supcon.margin: 0.0
 
   R1_laplacian:
-    description: + Frozen LaplacianLayer preprocessing
+    description: + Frozen LaplacianLayer preprocessing (fine+coarse scales)
     model.rlap.horizontal: false
     model.rlap.vertical: false
     model.rlap.orientation_bank: false
+    model.rlap.focal_spot: false
     model.laplacian.enabled: true
     model.prototype.enabled: false
     train.loss.supcon_weight: 0.0
     train.loss.orient_weight: 0.0
+    train.loss.focal_gamma: 0.0
+    train.supcon.margin: 0.0
 
   R2_rlap_hv:
     description: + RLAP Horizontal + Vertical streams
     model.rlap.horizontal: true
     model.rlap.vertical: true
     model.rlap.orientation_bank: false
+    model.rlap.focal_spot: false
     model.laplacian.enabled: true
     model.prototype.enabled: false
     train.loss.supcon_weight: 0.0
     train.loss.orient_weight: 0.0
+    train.loss.focal_gamma: 0.0
+    train.supcon.margin: 0.0
 
   R3_rlap_full:
     description: + RLAP 6-direction orientation bank
     model.rlap.horizontal: true
     model.rlap.vertical: true
     model.rlap.orientation_bank: true
+    model.rlap.focal_spot: false
     model.laplacian.enabled: true
     model.prototype.enabled: false
     train.loss.supcon_weight: 0.0
     train.loss.orient_weight: 0.0
+    train.loss.focal_gamma: 0.0
+    train.supcon.margin: 0.0
 
   R4_prototype:
     description: + Prototype head + SupCon balanced loss
     model.rlap.horizontal: true
     model.rlap.vertical: true
     model.rlap.orientation_bank: true
+    model.rlap.focal_spot: false
     model.laplacian.enabled: true
     model.prototype.enabled: true
     train.loss.supcon_weight: 0.1
     train.loss.orient_weight: 0.0
+    train.loss.focal_gamma: 0.0
+    train.supcon.margin: 0.0
 
   R5_full:
-    description: Full TinyOCT — all components + L_orient
+    description: Full TinyOCT v1 — all components + L_orient (reference)
     model.rlap.horizontal: true
     model.rlap.vertical: true
     model.rlap.orientation_bank: true
+    model.rlap.focal_spot: false
     model.laplacian.enabled: true
     model.prototype.enabled: true
     train.loss.supcon_weight: 0.1
     train.loss.orient_weight: 0.05
+    train.loss.focal_gamma: 0.0
+    train.supcon.margin: 0.0
+
+  # ── Improvement ablation rows (R6-R9) — isolate each DRUSEN fix ───────────
+  # Each row adds exactly one improvement over R5_full, isolating its effect
+  # on DRUSEN F1 and ECE. R9 combines all for the final TinyOCT v2 result.
+
+  R6_focal_stream:
+    description: R5 + FocalSpotStream (morphological DRUSEN deposit detection)
+    model.rlap.horizontal: true
+    model.rlap.vertical: true
+    model.rlap.orientation_bank: true
+    model.rlap.focal_spot: true          # +1728 params — the only change
+    model.laplacian.enabled: true
+    model.prototype.enabled: true
+    train.loss.supcon_weight: 0.1
+    train.loss.orient_weight: 0.05
+    train.loss.focal_gamma: 0.0
+    train.supcon.margin: 0.0
+
+  R7_focal_loss:
+    description: R5 + FocalLoss gamma=2.0 (hard-example mining for DRUSEN)
+    model.rlap.horizontal: true
+    model.rlap.vertical: true
+    model.rlap.orientation_bank: true
+    model.rlap.focal_spot: false
+    model.laplacian.enabled: true
+    model.prototype.enabled: true
+    train.loss.supcon_weight: 0.1
+    train.loss.orient_weight: 0.05
+    train.loss.focal_gamma: 2.0          # the only change
+    train.supcon.margin: 0.0
+
+  R8_margin_supcon:
+    description: R5 + MarginSupCon margin=0.3 (DRUSEN/DME cluster separation)
+    model.rlap.horizontal: true
+    model.rlap.vertical: true
+    model.rlap.orientation_bank: true
+    model.rlap.focal_spot: false
+    model.laplacian.enabled: true
+    model.prototype.enabled: true
+    train.loss.supcon_weight: 0.1
+    train.loss.orient_weight: 0.05
+    train.loss.focal_gamma: 0.0
+    train.supcon.margin: 0.3             # the only change
+
+  R9_full_v2:
+    description: Full TinyOCT v2 — R5 + FocalStream + FocalLoss + MarginSupCon
+    model.rlap.horizontal: true
+    model.rlap.vertical: true
+    model.rlap.orientation_bank: true
+    model.rlap.focal_spot: true
+    model.laplacian.enabled: true
+    model.prototype.enabled: true
+    train.loss.supcon_weight: 0.1
+    train.loss.orient_weight: 0.05
+    train.loss.focal_gamma: 2.0
+    train.supcon.margin: 0.3

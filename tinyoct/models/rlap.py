@@ -3,20 +3,32 @@ RLAP: Retinal Layer-Aware Pooling
 Structured Projection Attention for anatomically-grounded feature modulation.
 
 Mathematical framing:
-  RLAP projects the feature tensor F ∈ ℝ^{C×H×W} onto three anatomically-
+  RLAP projects the feature tensor F ∈ ℝ^{C×H×W} onto four anatomically-
   motivated subspace families:
-    φ_h  → row space     (retinal layer thickness)
-    φ_v  → column space  (focal lesion columns)
-    φ_θ  → oblique bases (Bruch's membrane orientation, 6 angles)
+    φ_h     → row space       (retinal layer thickness)
+    φ_v     → column space    (focal lesion columns)
+    φ_focal → spot space      (drusenoid focal deposits — optional)
+    φ_θ     → oblique bases   (Bruch's membrane orientation, 6 angles)
 
 All orientation masks are register_buffer — zero trainable parameters.
 The 1D convolutions in H and V streams ARE learnable (~3456 params total)
 but this is negligible vs the backbone's 4.3M.
 
-Zero-param assertion (run in unit tests):
-    assert sum(p.numel() for p in model.rlap.parameters()) == 3456
-    # 2 × (576 × 1 × 3) for H and V 1D depthwise convs = 3456 params
-    # OrientationBank: 0 parameters (pure buffers)
+FocalSpotStream adds 1728 params when enabled (focal_spot=True):
+    576 (depthwise 1×1 conv) + 1152 (BatchNorm2d weight + bias) = 1728
+
+Parameter assertions:
+    focal_spot=False: sum(p.numel() for p in rlap.parameters()) == 3456
+    focal_spot=True:  sum(p.numel() for p in rlap.parameters()) == 5184
+    OrientationBank:  0 parameters (pure buffers, always)
+
+Scientific basis for FocalSpotStream:
+  DRUSEN produce focal bright spots at the RPE-Bruch's membrane interface.
+  The H-stream averages across width (suppressing focal deposits) and the
+  V-stream averages across height (misaligned for horizontal drusen clusters).
+  A morphological white top-hat transform (MaxPool - input) explicitly
+  highlights local intensity maxima — the exact signature of drusenoid
+  deposits — without introducing structural assumptions about their location.
 """
 
 import math
@@ -166,11 +178,74 @@ class OrientationBank(nn.Module):
         return f"angles={self.angles}, params=0 (pure buffers)"
 
 
+class FocalSpotStream(nn.Module):
+    """
+    Morphological white top-hat transform for DRUSEN focal deposit detection.
+
+    DRUSEN appear as focal bright spots at the RPE-Bruch's membrane interface.
+    A white top-hat transform (MaxPool(x) - x) produces a non-negative map
+    that is large only where pixel values are local maxima — exactly where
+    drusenoid deposits create focal hyperreflective spots in the OCT scan.
+
+    The depthwise 1×1 conv allows per-channel rescaling of the spot map
+    without cross-channel mixing, preserving the morphological signal while
+    learning which channels carry the most drusen-relevant information.
+
+    Args:
+        channels:    Number of input feature channels (576)
+        pool_size:   Neighbourhood size for top-hat (default 7 = one retinal
+                     layer thickness in feature space at 7×7 resolution)
+
+    Parameter count: C (dw conv weights) + 2C (BN weight+bias) = 3C
+    For C=576: 576 + 1152 = 1728 parameters total.
+    Output: A_focal ∈ [0, 1]^{B×C×H×W} (sigmoid-gated spatial attention map)
+    """
+
+    def __init__(self, channels: int, pool_size: int = 7):
+        super().__init__()
+        # MaxPool with same-padding preserves spatial dimensions
+        # stride=1 ensures every position gets a neighbourhood maximum
+        self.pool = nn.MaxPool2d(
+            kernel_size=pool_size, stride=1, padding=pool_size // 2
+        )
+        # Depthwise 1×1 conv: per-channel rescaling of top-hat map
+        # groups=channels → no cross-channel mixing, preserves spot signal
+        self.dw_conv = nn.Conv2d(
+            channels, channels, kernel_size=1, groups=channels, bias=False
+        )
+        self.bn = nn.BatchNorm2d(channels)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Feature tensor [B, C, H, W] — MUST be the unmodulated input,
+               not post-H/V-stream features, to preserve top-hat correctness.
+        Returns:
+            A_focal: Spatial attention map [B, C, H, W] in [0, 1]
+        """
+        # White top-hat: local max minus the value = focal peak highlight
+        # spots[b,c,h,w] > 0 only where x[b,c,h,w] is a local maximum
+        spots = self.pool(x) - x          # [B, C, H, W], non-negative
+        out = self.dw_conv(spots)         # [B, C, H, W], per-channel reweight
+        out = self.bn(out)
+        return torch.sigmoid(out)         # [B, C, H, W], values in [0, 1]
+
+
 class RLAPv3(nn.Module):
     """
     RLAP v3: Full Structured Projection Attention module.
 
-    F_rlap = F ⊗ A_h ⊗ A_v ⊗ A_theta
+    F_rlap = F ⊗ A_h ⊗ A_v ⊗ A_focal ⊗ A_theta
+
+    Application order (anatomically motivated):
+      1. A_h    — suppress layers of wrong thickness (CNV/DME check)
+      2. A_v    — suppress non-lesion columns
+      3. A_focal — spotlight focal drusen deposits on already-gated features
+      4. A_theta — global orientation consistency (Bruch's membrane angle)
+
+    FocalSpotStream inputs are taken from the ORIGINAL x, not from `out`,
+    because the top-hat transform is only meaningful on unmodulated feature
+    magnitudes (H/V multiplication distorts local neighbourhood statistics).
 
     Args:
         channels:    Number of feature channels (576 for MobileNetV3-Small last stage)
@@ -178,9 +253,10 @@ class RLAPv3(nn.Module):
         width:       Feature map width  (7 for 224px input)
         horizontal:  Enable horizontal stream (default True)
         vertical:    Enable vertical stream (default True)
+        focal_spot:  Enable FocalSpotStream for DRUSEN (default False)
         use_bank:    Enable orientation bank (default True)
         angles:      Angles for orientation bank (default [0,30,45,60,90,135])
-        kernel_size: 1D conv kernel size (default 3)
+        kernel_size: 1D conv kernel size for H/V streams (default 3)
     """
 
     def __init__(
@@ -190,6 +266,7 @@ class RLAPv3(nn.Module):
         width: int = 7,
         horizontal: bool = True,
         vertical: bool = True,
+        focal_spot: bool = False,
         use_bank: bool = True,
         angles: list = None,
         kernel_size: int = 3,
@@ -197,12 +274,15 @@ class RLAPv3(nn.Module):
         super().__init__()
         self.use_horizontal = horizontal
         self.use_vertical = vertical
+        self.use_focal = focal_spot
         self.use_bank = use_bank
 
         if horizontal:
             self.h_stream = HorizontalStream(channels, height, kernel_size)
         if vertical:
             self.v_stream = VerticalStream(channels, width, kernel_size)
+        if focal_spot:
+            self.focal_stream = FocalSpotStream(channels)
         if use_bank:
             self.o_bank = OrientationBank(channels, height, width, angles)
 
@@ -215,28 +295,32 @@ class RLAPv3(nn.Module):
         """
         out = x
         if self.use_horizontal:
-            A_h = self.h_stream(x)   # [B, C, H, 1]
+            A_h = self.h_stream(x)           # [B, C, H, 1]
             out = out * A_h
         if self.use_vertical:
-            A_v = self.v_stream(x)   # [B, C, 1, W]
+            A_v = self.v_stream(x)           # [B, C, 1, W]
             out = out * A_v
+        if self.use_focal:
+            # Use original x — top-hat must operate on unmodulated features
+            A_focal = self.focal_stream(x)   # [B, C, H, W]
+            out = out * A_focal
         if self.use_bank:
-            A_t = self.o_bank(x)     # [B, C, H, W]
+            A_t = self.o_bank(x)             # [B, C, H, W]
             out = out * A_t
         return out
 
     def get_attention_maps(self, x: torch.Tensor) -> dict:
         """
-        Return individual attention maps for visualisation.
-        Used in GradCAM++ overlay generation (Week 7).
+        Return individual attention maps for visualisation (GradCAM++ overlays).
         """
         maps = {}
         if self.use_horizontal:
-            maps["horizontal"] = self.h_stream(x)  # [B, C, H, 1]
+            maps["horizontal"] = self.h_stream(x)   # [B, C, H, 1]
         if self.use_vertical:
-            maps["vertical"] = self.v_stream(x)    # [B, C, 1, W]
+            maps["vertical"] = self.v_stream(x)     # [B, C, 1, W]
+        if self.use_focal:
+            maps["focal_spot"] = self.focal_stream(x)  # [B, C, H, W]
         if self.use_bank:
-            # Return per-angle maps for the acceptance figure
             B, C, H, W = x.shape
             per_angle = {}
             for i, angle in enumerate(self.o_bank.angles):

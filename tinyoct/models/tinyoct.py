@@ -40,8 +40,11 @@ class TinyOCT(nn.Module):
         self.feature_dim = mc.feature_dim
         self.use_prototype = mc.prototype.enabled
 
-        # ── Stage 1: Frozen Laplacian preprocessing ──────────────────
-        self.laplacian = LaplacianLayer(alpha=mc.laplacian.alpha)
+        # ── Stage 1: Frozen multi-scale Laplacian preprocessing ──────
+        self.laplacian = LaplacianLayer(
+            alpha=mc.laplacian.alpha,
+            alpha_coarse=getattr(mc.laplacian, "alpha_coarse", 0.05),
+        )
 
         # ── Stage 2: MobileNetV3-Small backbone ──────────────────────
         self.backbone = timm.create_model(
@@ -60,6 +63,7 @@ class TinyOCT(nn.Module):
             width=mc.spatial_size,
             horizontal=mc.rlap.horizontal,
             vertical=mc.rlap.vertical,
+            focal_spot=getattr(mc.rlap, "focal_spot", False),
             use_bank=mc.rlap.orientation_bank,
             angles=mc.rlap.angles,
             kernel_size=mc.rlap.kernel_size,

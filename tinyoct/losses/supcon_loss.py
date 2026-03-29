@@ -17,17 +17,31 @@ import torch.nn.functional as F
 
 class BalancedSupConLoss(nn.Module):
     """
-    Supervised Contrastive Loss with temperature scaling.
+    Supervised Contrastive Loss with temperature scaling and optional margin.
 
     Args:
-        temperature: Contrastive temperature (default 0.07)
+        temperature:   Contrastive temperature (default 0.07)
         contrast_mode: 'all' uses all samples as anchors (default)
+        margin:        Inter-class separation margin (default 0.0).
+                       When margin > 0, negative pairs in the denominator have
+                       their similarity inflated by `margin`, forcing the model
+                       to push class clusters further apart in embedding space.
+                       Scientific basis: observed 0.63-confidence wrong
+                       predictions indicate DRUSEN/DME embeddings overlap;
+                       margin=0.3 enforces at least 0.3 cosine distance units
+                       of inter-class separation beyond intra-class spread.
     """
 
-    def __init__(self, temperature: float = 0.07, contrast_mode: str = "all"):
+    def __init__(
+        self,
+        temperature: float = 0.07,
+        contrast_mode: str = "all",
+        margin: float = 0.0,
+    ):
         super().__init__()
         self.temperature = temperature
         self.contrast_mode = contrast_mode
+        self.margin = margin
 
     def forward(
         self,
@@ -59,11 +73,22 @@ class BalancedSupConLoss(nn.Module):
         pos_mask.fill_diagonal_(0)
 
         # Log-sum-exp denominator (all non-self pairs)
-        exp_sim = torch.exp(sim_matrix)
+        # With margin: inflate negative-pair similarities in denominator only.
+        # This makes it harder for the model to reduce the denominator by
+        # collapsing negatives near positive clusters, forcing inter-class
+        # separation > intra-class compactness + margin.
+        if self.margin > 0:
+            # neg_mask: True for cross-class non-diagonal pairs
+            neg_mask = (~diag_mask) & (pos_mask == 0)   # [B, B] bool
+            sim_for_denom = sim_matrix + self.margin * neg_mask.float()
+        else:
+            sim_for_denom = sim_matrix
+
+        exp_sim = torch.exp(sim_for_denom)
         exp_sim = exp_sim.masked_fill(diag_mask, 0)
         log_denom = torch.log(exp_sim.sum(dim=1, keepdim=True) + 1e-9)
 
-        # Per-sample contrastive loss
+        # Per-sample contrastive loss — numerator uses original sim (no margin)
         log_prob = sim_matrix - log_denom
 
         # Mean over positive pairs

@@ -32,16 +32,18 @@ model:
     horizontal: true
     vertical: true
     orientation_bank: true
+    focal_spot: false     # FocalSpotStream for DRUSEN (enable in R6/R9 ablations)
     angles: [0, 30, 45, 60, 90, 135]   # 6-direction bank
     kernel_size: 3
   # Prototype head
   prototype:
     enabled: true
     temperature: 0.07     # cosine similarity temperature
-  # Laplacian preprocessing
+  # Laplacian preprocessing (multi-scale: fine 3×3 + coarse 5×5)
   laplacian:
     enabled: true
-    alpha: 0.1            # residual blend strength
+    alpha: 0.1            # fine-scale (3×3) residual blend — sharp layer boundaries
+    alpha_coarse: 0.05    # coarse-scale (5×5) residual blend — diffuse DRUSEN deposits
 
 # ── Training ──────────────────────────────────────────────
 train:
@@ -60,10 +62,12 @@ train:
     orient_weight: 0.05   # λ₂
     orient_angle_range: 5 # ±5° rotation for L_orient
     orient_temperature: 2.0
+    focal_gamma: 2.0      # Focal Loss exponent; 0.0 = standard weighted CE
   # SupCon
   supcon:
     temperature: 0.07
     balanced_sampling: true   # enforce equal class counts in batch
+    margin: 0.3           # inter-class margin; 0.0 = standard SupCon
 
 # ── Evaluation ────────────────────────────────────────────
 eval:
