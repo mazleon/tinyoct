@@ -14,7 +14,7 @@ data:
   octmnist_path: ./data/medmnist
   octid_path: ./data/OCTID
   image_size: 224
-  num_workers: 4
+  num_workers: 16       # 128 CPU cores on pod
   pin_memory: true
   classes: [CNV, DME, DRUSEN, NORMAL]
   # Class weights (inverse frequency, OCT2017 approximate)
@@ -48,13 +48,13 @@ model:
 # ── Training ──────────────────────────────────────────────
 train:
   epochs: 30
-  batch_size: 64
-  num_workers: 4
+  batch_size: 128       # tuned for RTX 4090 24 GB; safe with orient double-forward
+  num_workers: 16       # 128 CPU cores available on pod
   optimizer: adamw
-  lr: 1.0e-3
+  lr: 1.5e-3            # sqrt-scaling: 1e-3 × sqrt(128/64) ≈ 1.41e-3
   weight_decay: 1.0e-4
   scheduler: cosine       # cosine | step | plateau
-  warmup_epochs: 2
+  warmup_epochs: 3      # 3 epochs warmup at 2× batch scale
   # Loss
   loss:
     ce_weight: 1.0
