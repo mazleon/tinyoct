@@ -43,9 +43,13 @@ class PrototypeHead(nn.Module):
         self.num_classes = num_classes
 
         # Learnable prototype vectors: one per class
-        # Initialised with unit-norm random vectors
+        # Orthogonal init ensures maximum initial separation — critical for
+        # minority classes like DRUSEN that receive fewer gradient updates
+        # in early epochs. With K=4 in D=576 space, orthogonality is exact.
+        proto_init = torch.empty(num_classes, feature_dim)
+        nn.init.orthogonal_(proto_init)
         self.prototypes = nn.Parameter(
-            F.normalize(torch.randn(num_classes, feature_dim), dim=1)
+            F.normalize(proto_init, dim=1)
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

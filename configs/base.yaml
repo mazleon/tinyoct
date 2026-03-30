@@ -63,6 +63,8 @@ train:
     orient_angle_range: 5 # ±5° rotation for L_orient
     orient_temperature: 2.0
     focal_gamma: 2.0      # Focal Loss exponent; 0.0 = standard weighted CE
+    proto_weight: 0.01    # λ₃ — prototype separation penalty
+    proto_margin: -0.1    # cosine similarity margin for prototype repulsion
   # SupCon
   supcon:
     temperature: 0.07

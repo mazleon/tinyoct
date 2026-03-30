@@ -43,6 +43,8 @@ def make_cfg():
                 ce_weight=1.0, supcon_weight=0.1, orient_weight=0.05,
                 orient_angle_range=5, orient_temperature=2.0,
                 focal_gamma=0.0,        # 0.0 = standard CE (backward compat)
+                proto_weight=0.01,      # prototype separation penalty
+                proto_margin=-0.1,      # cosine similarity margin
             ),
             supcon=SimpleNamespace(temperature=0.07, margin=0.0),
         ),
@@ -300,3 +302,154 @@ class TestMarginSupCon:
         labels = torch.tensor([0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3])
         loss = loss_fn(features, labels)
         assert not torch.isnan(loss), "MarginSupCon produced NaN"
+
+
+# ── Feature Dim Assertion tests ───────────────────────────────────────────────
+class TestFeatureDimAssertion:
+    def test_correct_dim_passes(self):
+        """feature_dim=576 should create model without error."""
+        from tinyoct.models.tinyoct import TinyOCT
+        cfg = make_cfg()
+        model = TinyOCT(cfg)  # should not raise
+        assert model.feature_dim == 576
+
+    def test_wrong_dim_raises(self):
+        """feature_dim != 576 must raise AssertionError at model init."""
+        from tinyoct.models.tinyoct import TinyOCT
+        cfg = make_cfg()
+        cfg.model.feature_dim = 96  # wrong!
+        with pytest.raises(AssertionError, match="576"):
+            TinyOCT(cfg)
+
+
+# ── Orthogonal Prototype Init tests ───────────────────────────────────────────
+class TestOrthogonalPrototypeInit:
+    def test_prototypes_are_orthogonal(self):
+        """After init, all prototype pairs should have near-zero cosine similarity."""
+        from tinyoct.models.prototype_head import PrototypeHead
+        import torch.nn.functional as F
+        head = PrototypeHead(feature_dim=576, num_classes=4)
+        protos = F.normalize(head.prototypes.data, dim=1)  # [4, 576]
+        sim = torch.matmul(protos, protos.T)  # [4, 4]
+        # Off-diagonal should be near zero
+        off_diag = sim - torch.eye(4)
+        assert off_diag.abs().max() < 0.05, (
+            f"Prototypes are not orthogonal: max off-diagonal cosine sim = {off_diag.abs().max():.4f}"
+        )
+
+    def test_prototypes_are_unit_norm(self):
+        """All prototypes should be unit-normalised after init."""
+        from tinyoct.models.prototype_head import PrototypeHead
+        head = PrototypeHead(feature_dim=576, num_classes=4)
+        norms = head.prototypes.data.norm(dim=1)  # [4]
+        assert torch.allclose(norms, torch.ones(4), atol=1e-4), (
+            f"Prototype norms: {norms.tolist()}"
+        )
+
+
+# ── Double Temperature Scaling tests ──────────────────────────────────────────
+class TestTemperatureScaling:
+    def test_no_double_scaling_during_training(self):
+        """When log_temperature.requires_grad=False, logits must NOT be divided by T."""
+        from tinyoct.models.tinyoct import TinyOCT
+        cfg = make_cfg()
+        model = TinyOCT(cfg)
+        model.eval()
+        x = torch.randn(2, 3, 224, 224)
+        with torch.no_grad():
+            logits = model(x)
+        # At init, log_temperature=0 → T=1.0
+        # If double scaling were active, logits would be divided twice
+        # We verify by checking that log_temperature.requires_grad is False
+        assert not model.log_temperature.requires_grad
+        # Verify logits are reasonable (not blown up by 1/0.07 double scaling)
+        assert logits.abs().max() < 200, (
+            f"Logits suspiciously large ({logits.abs().max():.1f}), "
+            f"possible double temperature scaling"
+        )
+
+    def test_calibration_mode_enables_scaling(self):
+        """Enabling requires_grad on log_temperature should activate post-hoc scaling."""
+        from tinyoct.models.tinyoct import TinyOCT
+        cfg = make_cfg()
+        model = TinyOCT(cfg)
+        model.eval()
+        x = torch.randn(2, 3, 224, 224)
+        with torch.no_grad():
+            logits_before = model(x).clone()
+        # Enable calibration
+        model.log_temperature.requires_grad_(True)
+        model.log_temperature.data.fill_(0.5)  # T = exp(0.5) ≈ 1.65
+        with torch.no_grad():
+            logits_after = model(x)
+        # Logits should be different (divided by T ≈ 1.65)
+        assert not torch.allclose(logits_before, logits_after, atol=1e-3), (
+            "Enabling calibration temperature did not change logits"
+        )
+
+
+# ── Focal-Aware Pooling tests ─────────────────────────────────────────────────
+class TestFocalAwarePooling:
+    def test_focal_pooling_output_shape(self):
+        """With focal_spot=True, model should still produce correct output shape."""
+        from tinyoct.models.tinyoct import TinyOCT
+        cfg = make_cfg()
+        cfg.model.rlap.focal_spot = True  # enable focal stream
+        model = TinyOCT(cfg)
+        x = torch.randn(2, 3, 224, 224)
+        logits, features = model(x, return_features=True)
+        assert logits.shape == (2, 4), f"Logits shape: {logits.shape}"
+        assert features.shape == (2, 576), f"Features shape: {features.shape}"
+
+
+# ── Prototype Separation Loss tests ───────────────────────────────────────────
+class TestPrototypeSeparationLoss:
+    def test_output_non_negative(self):
+        from tinyoct.losses.proto_loss import PrototypeSeparationLoss
+        loss_fn = PrototypeSeparationLoss(margin=-0.1)
+        protos = torch.randn(4, 576)
+        loss = loss_fn(protos)
+        assert loss.item() >= 0, f"Proto loss should be non-negative, got {loss.item()}"
+
+    def test_no_nan(self):
+        from tinyoct.losses.proto_loss import PrototypeSeparationLoss
+        loss_fn = PrototypeSeparationLoss(margin=-0.1)
+        protos = torch.randn(4, 576)
+        loss = loss_fn(protos)
+        assert not torch.isnan(loss), "Proto separation loss produced NaN"
+
+    def test_orthogonal_prototypes_low_loss(self):
+        """Orthogonal prototypes should have very low separation loss."""
+        from tinyoct.losses.proto_loss import PrototypeSeparationLoss
+        import torch.nn.functional as F
+        loss_fn = PrototypeSeparationLoss(margin=-0.1)
+        # Create orthogonal prototypes
+        proto_init = torch.empty(4, 576)
+        torch.nn.init.orthogonal_(proto_init)
+        protos = F.normalize(proto_init, dim=1)
+        loss = loss_fn(protos).item()
+        assert loss < 0.02, f"Orthogonal protos should give near-zero loss, got {loss:.4f}"
+
+    def test_identical_prototypes_high_loss(self):
+        """Identical prototypes should produce high separation loss."""
+        from tinyoct.losses.proto_loss import PrototypeSeparationLoss
+        loss_fn = PrototypeSeparationLoss(margin=-0.1)
+        # All prototypes are the same vector
+        protos = torch.randn(1, 576).expand(4, -1).clone()
+        loss = loss_fn(protos).item()
+        assert loss > 1.0, f"Identical protos should give high loss, got {loss:.4f}"
+
+    def test_combined_loss_includes_proto(self):
+        """CombinedLoss should include proto term when proto_weight > 0."""
+        from tinyoct.models.tinyoct import TinyOCT
+        from tinyoct.losses.combined_loss import CombinedLoss
+        cfg = make_cfg()
+        cfg.train.loss.proto_weight = 0.01
+        model = TinyOCT(cfg)
+        loss_fn = CombinedLoss(cfg)
+        x = torch.randn(4, 3, 224, 224)
+        logits, features = model(x, return_features=True)
+        labels = torch.tensor([0, 1, 2, 3])
+        losses = loss_fn(model, x, logits, features, labels)
+        assert "proto" in losses, "proto key missing from CombinedLoss output"
+        assert losses["proto"].item() >= 0

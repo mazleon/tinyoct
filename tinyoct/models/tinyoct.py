@@ -40,6 +40,15 @@ class TinyOCT(nn.Module):
         self.feature_dim = mc.feature_dim
         self.use_prototype = mc.prototype.enabled
 
+        # ── Dimension guard ─────────────────────────────────────────
+        # MobileNetV3-Small outputs 576 channels from its last stage.
+        # Catching misconfigurations here prevents silent matmul errors
+        # downstream in PrototypeHead or nn.Linear.
+        assert mc.feature_dim == 576, (
+            f"feature_dim={mc.feature_dim} but MobileNetV3-Small outputs 576 "
+            f"channels. Check cfg.model.feature_dim in your config."
+        )
+
         # ── Stage 1: Frozen multi-scale Laplacian preprocessing ──────
         self.laplacian = LaplacianLayer(
             alpha=mc.laplacian.alpha,
@@ -119,16 +128,29 @@ class TinyOCT(nn.Module):
         # Stage 3: RLAP
         F_rlap = self.rlap(F_map)           # [B, 576, 7, 7]
 
-        # Stage 4: Global average pool
-        pooled = self.gap(F_rlap)            # [B, 576, 1, 1]
-        flat = pooled.flatten(1)             # [B, 576]
+        # Stage 4: Pooling — focal-aware when FocalSpotStream is active
+        # Standard GAP destroys the spatial locality that FocalSpotStream
+        # was designed to preserve (DRUSEN focal deposit signals averaged
+        # away). Attention-weighted pooling retains focal spot emphasis.
+        if self.use_prototype and self.rlap.use_focal:
+            A_focal = self.rlap.focal_stream(F_map)  # [B, 576, 7, 7]
+            weights = A_focal / (A_focal.sum(dim=(-2, -1), keepdim=True) + 1e-8)  # [B, 576, 7, 7]
+            flat = (F_rlap * weights).sum(dim=(-2, -1))  # [B, 576]
+        else:
+            pooled = self.gap(F_rlap)        # [B, 576, 1, 1]
+            flat = pooled.flatten(1)         # [B, 576]
 
         # Stage 5: Head
         logits = self.head(flat)             # [B, num_classes]
 
-        # Stage 6: Temperature scaling (active only post-calibration)
-        T = self.log_temperature.exp()
-        logits = logits / T
+        # Stage 6: Temperature scaling (active ONLY during post-hoc calibration)
+        # During training, PrototypeHead already applies its own temperature
+        # (T=0.07). Applying a second temperature here would double-scale
+        # logits, distorting gradients and inflating confidence. The post-hoc
+        # temperature is only unlocked during calibration (requires_grad=True).
+        if self.log_temperature.requires_grad:
+            T = self.log_temperature.exp()   # [1]
+            logits = logits / T              # [B, num_classes]
 
         if return_features:
             return logits, flat

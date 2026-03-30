@@ -1,7 +1,7 @@
 """
 Combined loss function for TinyOCT.
 
-L_total = L_CE + λ₁ · L_supcon + λ₂ · L_orient
+L_total = L_CE + λ₁ · L_supcon + λ₂ · L_orient + λ₃ · L_proto
 
   L_CE:      FocalLoss (gamma > 0) or weighted CrossEntropy (gamma = 0)
              Focal Loss: down-weights easy CNV/NORMAL, focuses on hard
@@ -10,9 +10,12 @@ L_total = L_CE + λ₁ · L_supcon + λ₂ · L_orient
              margin > 0 enforces inter-class separation in embedding space,
              addressing observed DRUSEN/DME overlap at 0.63 confidence.
   L_orient:  Orientation Consistency (robustness to acquisition variation)
+  L_proto:   Prototype Separation — penalises cosine similarity between
+             class prototypes to prevent DME/DRUSEN drift.
 
 Config keys consumed (all optional with backward-compatible defaults):
   train.loss.focal_gamma    float  (default 0.0 → standard CE)
+  train.loss.proto_weight   float  (default 0.0 → no proto separation)
   train.supcon.margin       float  (default 0.0 → standard SupCon)
 """
 
@@ -22,6 +25,7 @@ import torch.nn as nn
 from .focal_loss import FocalLoss
 from .supcon_loss import BalancedSupConLoss
 from .orient_loss import OrientationConsistencyLoss
+from .proto_loss import PrototypeSeparationLoss
 
 
 class CombinedLoss(nn.Module):
@@ -37,6 +41,7 @@ class CombinedLoss(nn.Module):
 
         self.lambda_supcon = lc.supcon_weight   # λ₁ (default 0.1)
         self.lambda_orient = lc.orient_weight   # λ₂ (default 0.05)
+        self.lambda_proto  = getattr(lc, "proto_weight", 0.0)  # λ₃ (default 0.0)
 
         # ── CE / Focal Loss ──────────────────────────────────────────
         # getattr with defaults preserves backward compat for old configs
@@ -70,6 +75,10 @@ class CombinedLoss(nn.Module):
             angle_range=lc.orient_angle_range,
             temperature=lc.orient_temperature,
         )
+
+        # ── Prototype Separation ─────────────────────────────────────
+        proto_margin = getattr(lc, "proto_margin", -0.1)
+        self.proto_sep = PrototypeSeparationLoss(margin=proto_margin)
 
     def forward(
         self,
@@ -111,11 +120,17 @@ class CombinedLoss(nn.Module):
         if self.lambda_orient > 0:
             loss_or = self.orient(model, x)
 
+        # ── L_proto ──────────────────────────────────────────────────
+        loss_proto = torch.tensor(0.0, device=device)
+        if self.lambda_proto > 0 and hasattr(model, "head") and hasattr(model.head, "prototypes"):
+            loss_proto = self.proto_sep(model.head.prototypes)
+
         # ── Total ─────────────────────────────────────────────────────
         total = (
             loss_ce
             + self.lambda_supcon * loss_sc
             + self.lambda_orient * loss_or
+            + self.lambda_proto  * loss_proto
         )
 
         return {
@@ -123,4 +138,5 @@ class CombinedLoss(nn.Module):
             "ce":     loss_ce.detach(),
             "supcon": loss_sc.detach(),
             "orient": loss_or.detach(),
+            "proto":  loss_proto.detach(),
         }

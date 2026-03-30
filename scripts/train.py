@@ -4,16 +4,16 @@ Main training script for TinyOCT v3.
 
 Usage:
     # Full TinyOCT model (R5):
-    python scripts/train.py --config configs/experiment_oct2017.yaml
+    uv run scripts/train.py --config configs/experiment_oct2017.yaml
 
     # ResNet18 baseline (fair comparison):
-    python scripts/train.py --config configs/smoketest_resnet.yaml --model resnet18
+    uv run scripts/train.py --config configs/smoketest_resnet.yaml --model resnet18
 
     # Single ablation run:
-    python scripts/train.py --config configs/base.yaml --ablation R2_rlap_hv
+    uv run scripts/train.py --config configs/base.yaml --ablation R2_rlap_hv
 
     # All ablation rows (R0–R5):
-    python scripts/run_ablations.py
+    uv run scripts/run_ablations.py
 """
 
 import sys

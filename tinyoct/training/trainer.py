@@ -192,7 +192,7 @@ class Trainer:
     def train_epoch(self, epoch: int) -> dict:
         self.model.train()
         loader = self.dm.train_dataloader()
-        total_loss = ce_loss = sc_loss = or_loss = 0.0
+        total_loss = ce_loss = sc_loss = or_loss = pr_loss = 0.0
         correct = total = 0
         step_log_every = self.cfg.logging.log_every_n_steps
 
@@ -211,6 +211,7 @@ class Trainer:
             ce_loss    += losses["ce"].item()
             sc_loss    += losses["supcon"].item()
             or_loss    += losses["orient"].item()
+            pr_loss    += losses["proto"].item()
 
             preds    = logits.argmax(dim=1)
             correct  += (preds == y).sum().item()
@@ -223,6 +224,7 @@ class Trainer:
                     "train/step_ce_loss":        losses["ce"].item(),
                     "train/step_supcon_loss":    losses["supcon"].item(),
                     "train/step_orient_loss":    losses["orient"].item(),
+                    "train/step_proto_loss":     losses["proto"].item(),
                     "train/lr":                  self.optimizer.param_groups[0]["lr"],
                 })
 
@@ -232,6 +234,7 @@ class Trainer:
             "ce":     ce_loss / n,
             "supcon": sc_loss / n,
             "orient": or_loss / n,
+            "proto":  pr_loss / n,
             "acc":    correct / total,
         }
 
@@ -290,7 +293,7 @@ class Trainer:
     # ------------------------------------------------------------------
 
     _CSV_COLUMNS = [
-        "epoch", "train_loss", "train_ce", "train_supcon", "train_orient", "train_acc",
+        "epoch", "train_loss", "train_ce", "train_supcon", "train_orient", "train_proto", "train_acc",
         "val_acc", "val_macro_f1", "val_macro_auc",
         "val_cnv_f1", "val_dme_f1", "val_drusen_f1", "val_normal_f1",
         "lr", "epoch_time_s", "monitor_metric", "is_best",
@@ -306,6 +309,7 @@ class Trainer:
             "train_ce":       round(train_m["ce"],     6),
             "train_supcon":   round(train_m["supcon"], 6),
             "train_orient":   round(train_m["orient"], 6),
+            "train_proto":    round(train_m["proto"],  6),
             "train_acc":      round(train_m["acc"],    6),
             "val_acc":        round(val_m["accuracy"],  6),
             "val_macro_f1":   round(val_m["macro_f1"],  6),
@@ -374,6 +378,7 @@ class Trainer:
                     "train/ce_loss":      train_m["ce"],
                     "train/supcon_loss":  train_m["supcon"],
                     "train/orient_loss":  train_m["orient"],
+                    "train/proto_loss":   train_m["proto"],
                     "train/accuracy":     train_m["acc"],
                     "train/lr":           self.optimizer.param_groups[0]["lr"],
                     # Val metrics
