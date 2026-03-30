@@ -5,6 +5,7 @@ Weights & Biases logging (dataset stats, training metrics, eval metrics,
 per-class F1, confusion matrices, checkpoint artifacts).
 """
 
+import csv
 import os
 import time
 import torch
@@ -33,14 +34,22 @@ def _load_wandb_key():
 
 
 class Trainer:
-    def __init__(self, model, cfg, datamodule, device):
+    def __init__(self, model, cfg, datamodule, device, model_name="tinyoct"):
         self.model = model.to(device)
         self.cfg = cfg
         self.dm = datamodule
         self.device = device
+        self.model_name = model_name
         self.best_metric = -float("inf")
         self.ckpt_dir = Path(cfg.checkpoint.dir)
         self.ckpt_dir.mkdir(parents=True, exist_ok=True)
+
+        # CSV metrics log — one row per epoch, written incrementally
+        out_dir = Path(cfg.logging.output_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        run_name = getattr(cfg.project, "name", "run")
+        self._csv_path = out_dir / f"{run_name}_metrics.csv"
+        self._csv_header_written = self._csv_path.exists()
 
         # Optimiser — only trainable params
         tc = cfg.train
@@ -82,11 +91,18 @@ class Trainer:
                 import copy
                 cfg_dict = {}
 
+            # Build descriptive tags for W&B filtering
+            tags = ["oct2017", self.model_name]
+            if self.model_name == "tinyoct":
+                tags.extend(["rlap", "laplacian", "prototype"])
+            else:
+                tags.append("baseline")
+
             run = wandb.init(
                 project=self.cfg.logging.wandb_project,
                 name=getattr(self.cfg.project, "name", "tinyoct"),
                 config=cfg_dict,
-                tags=["oct2017", "tinyoct", "rlap"],
+                tags=tags,
             )
 
             # ── Dataset statistics table ─────────────────────────────
@@ -128,11 +144,14 @@ class Trainer:
             self.wandb.log({f"dataset/{split_name}_total": total})
 
     def _log_model_summary(self):
-        """Log parameter counts as W&B summary metrics."""
+        """Log parameter counts and architecture metadata as W&B summary metrics."""
         if self.wandb is None:
             return
         p = self.model.count_parameters()
+        pretrained = getattr(self.cfg.model, "pretrained", False)
         self.wandb.summary.update({
+            "model/architecture":     self.model_name,
+            "model/pretrained":       pretrained,
             "model/total_params":     p["total"],
             "model/trainable_params": p["trainable"],
             "model/rlap_params":      p["rlap"],
@@ -267,12 +286,56 @@ class Trainer:
         return saved_path
 
     # ------------------------------------------------------------------
+    # CSV metrics logging
+    # ------------------------------------------------------------------
+
+    _CSV_COLUMNS = [
+        "epoch", "train_loss", "train_ce", "train_supcon", "train_orient", "train_acc",
+        "val_acc", "val_macro_f1", "val_macro_auc",
+        "val_cnv_f1", "val_dme_f1", "val_drusen_f1", "val_normal_f1",
+        "lr", "epoch_time_s", "monitor_metric", "is_best",
+    ]
+
+    def _append_csv_row(self, epoch: int, train_m: dict, val_m: dict, elapsed: float):
+        """Append one row to the per-run CSV log. Creates header on first write."""
+        per_cls = val_m.get("per_class_f1", {})
+        monitor_val = val_m.get(self.cfg.checkpoint.monitor, 0.0)
+        row = {
+            "epoch":          epoch,
+            "train_loss":     round(train_m["loss"],   6),
+            "train_ce":       round(train_m["ce"],     6),
+            "train_supcon":   round(train_m["supcon"], 6),
+            "train_orient":   round(train_m["orient"], 6),
+            "train_acc":      round(train_m["acc"],    6),
+            "val_acc":        round(val_m["accuracy"],  6),
+            "val_macro_f1":   round(val_m["macro_f1"],  6),
+            "val_macro_auc":  round(val_m.get("macro_auc", 0.0), 6),
+            "val_cnv_f1":     round(per_cls.get("CNV",    0.0), 6),
+            "val_dme_f1":     round(per_cls.get("DME",    0.0), 6),
+            "val_drusen_f1":  round(per_cls.get("DRUSEN", 0.0), 6),
+            "val_normal_f1":  round(per_cls.get("NORMAL", 0.0), 6),
+            "lr":             round(self.optimizer.param_groups[0]["lr"], 8),
+            "epoch_time_s":   round(elapsed, 2),
+            "monitor_metric": round(monitor_val, 6),
+            "is_best":        int(monitor_val >= self.best_metric),
+        }
+        write_header = not self._csv_header_written
+        with open(self._csv_path, "a", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=self._CSV_COLUMNS)
+            if write_header:
+                writer.writeheader()
+                self._csv_header_written = True
+            writer.writerow(row)
+
+    # ------------------------------------------------------------------
     # Main fit loop
     # ------------------------------------------------------------------
 
     def fit(self):
         tc = self.cfg.train
+        pretrained = getattr(self.cfg.model, "pretrained", False)
         print(f"\nStarting training for {tc.epochs} epochs on {self.device}")
+        print(f"  Architecture: {self.model_name}  |  Pretrained: {pretrained}")
         print(f"  Dataset: OCT2017  |  Train: {len(self.dm.train_ds):,}  |  Val: {len(self.dm.val_ds):,}")
         if hasattr(self.dm.train_ds, "class_counts"):
             print(f"  Class distribution (train): {self.dm.train_ds.class_counts()}")
@@ -291,11 +354,15 @@ class Trainer:
                 f"loss={train_m['loss']:.4f}  acc={train_m['acc']:.3f}  "
                 f"val_acc={val_m['accuracy']:.3f}  val_f1={val_m['macro_f1']:.3f}  "
                 f"CNV={per_cls.get('CNV', 0):.3f}  DME={per_cls.get('DME', 0):.3f}  "
+                f"DRU={per_cls.get('DRUSEN', 0):.3f}  NOR={per_cls.get('NORMAL', 0):.3f}  "
                 f"({elapsed:.1f}s)"
             )
 
             # Save checkpoint
             self.save_checkpoint(epoch, {**val_m, **{f"train_{k}": v for k, v in train_m.items()}})
+
+            # CSV metrics log — append one row per epoch for offline analysis
+            self._append_csv_row(epoch, train_m, val_m, elapsed)
 
             # W&B epoch log
             if self.use_wandb and self.wandb:

@@ -18,7 +18,7 @@ data:
   pin_memory: true
   classes: [CNV, DME, DRUSEN, NORMAL]
   # Class weights (inverse frequency, OCT2017 approximate)
-  class_weights: [0.48, 1.60, 2.20, 0.72]
+  class_weights: [0.56, 1.83, 2.39, 0.80]
 
 # ── Model ─────────────────────────────────────────────────
 model:
@@ -47,7 +47,7 @@ model:
 
 # ── Training ──────────────────────────────────────────────
 train:
-  epochs: 30
+  epochs: 10
   batch_size: 128       # tuned for RTX 4090 24 GB; safe with orient double-forward
   num_workers: 16       # 128 CPU cores available on pod
   optimizer: adamw
@@ -81,7 +81,7 @@ checkpoint:
   dir: ./checkpoints
   save_every_epoch: true        # keep all for ablation visualization
   save_best: true
-  monitor: macro_f1
+  monitor: drusen_f1
   mode: max
 
 # ── Logging ───────────────────────────────────────────────

@@ -54,10 +54,16 @@ def compute_metrics(
 
     per_class = {CLASS_NAMES[i]: float(pf1[i]) for i in range(min(4, len(pf1)))}
 
+    # Flat per-class keys so checkpoint monitor / save_checkpoint can access them
+    # directly via metrics.get("drusen_f1") without nested dict lookup
+    flat_per_class = {f"{cls.lower()}_f1": v for cls, v in per_class.items()}
+
     return {
         "accuracy":        float(acc),
         "macro_f1":        float(mf1),
         "per_class_f1":    per_class,
         "macro_auc":       float(mauc),
         "confusion_matrix": cm.tolist(),
+        # Flat aliases — enables checkpoint.monitor = "drusen_f1"
+        **flat_per_class,   # cnv_f1, dme_f1, drusen_f1, normal_f1
     }

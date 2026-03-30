@@ -47,7 +47,6 @@ lightning_logs/
 
 # Jupyter
 .ipynb_checkpoints/
-*.ipynb
 
 # Package Manager
 .venv/

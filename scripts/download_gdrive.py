@@ -228,7 +228,7 @@ def _find_octid_root(extract_tmp: Path) -> Path | None:
     Expects folders like NORMAL/, DR/, AMD/ at the root.
     """
     octid_classes = {"NORMAL", "DR", "AMD", "CNV", "DME", "DRUSEN"}
-    for p in [extract_tmp, *extract_tmp.iterdir() if extract_tmp.is_dir() else []]:
+    for p in [extract_tmp] + (list(extract_tmp.iterdir()) if extract_tmp.is_dir() else []):
         if p.is_dir():
             subdirs = {d.name.upper() for d in p.iterdir() if d.is_dir()}
             if subdirs & octid_classes:  # at least one class matches

@@ -18,7 +18,7 @@ data:
   num_workers: 4          # use workers for parallel IO
   pin_memory: true
   classes: [CNV, DME, DRUSEN, NORMAL]
-  class_weights: [0.48, 1.60, 2.20, 0.72]
+  class_weights: [0.56, 1.83, 2.39, 0.80]
 
 model:
   backbone: mobilenetv3_small_100

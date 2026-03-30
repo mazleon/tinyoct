@@ -28,7 +28,7 @@ model:
     enabled: false
 
 train:
-  epochs: 30
+  epochs: 10
   batch_size: 192        # ResNet18 has no orient double-forward, can go higher safely
   num_workers: 16        # 128 CPU cores available
   lr: 1.7e-3             # sqrt-scaling: 1e-3 × sqrt(192/64) ≈ 1.73e-3

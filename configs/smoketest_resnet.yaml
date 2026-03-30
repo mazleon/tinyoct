@@ -1,0 +1,88 @@
+# ─────────────────────────────────────────────────────────
+#  ResNet18 Baseline — Smoke-Test Config (3 epochs)
+# ─────────────────────────────────────────────────────────
+#  Usage: uv run scripts/train.py --config configs/smoketest_resnet.yaml --model resnet18
+# ─────────────────────────────────────────────────────────
+#  IMPORTANT: Hyperparameters (lr, batch_size, optimizer, seed) are
+#  identical to smoketest.yaml. The ONLY variable is the model architecture.
+#  This ensures a scientifically fair comparison.
+# ─────────────────────────────────────────────────────────
+
+project:
+  name: resnet18-smoketest
+  seed: 42
+  device: auto
+
+data:
+  root: ./data
+  oct2017_path: ./data/oct2017
+  octmnist_path: ./data/medmnist
+  octid_path: ./data/OCTID
+  image_size: 224
+  num_workers: 4
+  pin_memory: true
+  classes: [CNV, DME, DRUSEN, NORMAL]
+  class_weights: [0.48, 1.60, 2.20, 0.72]
+
+model:
+  architecture: resnet18      # selects ResNet18Baseline
+  backbone: resnet18
+  pretrained: true
+  feature_dim: 512            # ResNet18 final feature channels
+  spatial_size: 7
+  num_classes: 4
+  # No RLAP in baseline
+  rlap:
+    horizontal: false
+    vertical: false
+    orientation_bank: false
+    angles: [0, 30, 45, 60, 90, 135]
+    kernel_size: 3
+  # No prototype head in baseline — standard FC
+  prototype:
+    enabled: false
+    temperature: 0.07
+  # No Laplacian preprocessing in baseline
+  laplacian:
+    enabled: false
+    alpha: 0.1
+    alpha_coarse: 0.05
+
+train:
+  epochs: 3
+  batch_size: 64
+  num_workers: 4
+  optimizer: adamw
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  scheduler: cosine
+  warmup_epochs: 0
+  loss:
+    ce_weight: 1.0
+    supcon_weight: 0.0        # No SupCon for vanilla baseline
+    orient_weight: 0.0        # No orientation consistency for baseline
+    orient_angle_range: 5
+    orient_temperature: 2.0
+  supcon:
+    temperature: 0.07
+    balanced_sampling: false
+    margin: 0.0
+
+eval:
+  batch_size: 64
+  tta: false
+  tta_transforms: [hflip, brightness]
+  calibration: false
+
+checkpoint:
+  dir: ./checkpoints/resnet18_smoketest
+  save_every_epoch: false
+  save_best: true
+  monitor: macro_f1
+  mode: max
+
+logging:
+  use_wandb: true
+  wandb_project: tinyoct
+  log_every_n_steps: 10
+  output_dir: ./outputs
