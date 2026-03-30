@@ -1,0 +1,38 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  TinyOCT v2 — Google Colab Config  (Tesla T4, 15 GB VRAM)
+#  Inherits base.yaml, overrides hardware-specific settings only.
+# ─────────────────────────────────────────────────────────────────────────────
+
+defaults:
+  - base
+
+project:
+  name: tinyoct-colab
+
+data:
+  # Path is set by the notebook cell — edit if your layout differs
+  oct2017_path: /content/data/OCT2017
+  num_workers: 2            # Colab free tier: 2 CPUs; Pro: bump to 4
+
+train:
+  epochs: 30
+  batch_size: 64            # T4 15 GB safe (orient loss runs 2× forward per batch)
+  num_workers: 2
+  lr: 1.0e-3                # base lr at batch=64 (no sqrt-scaling needed vs pod)
+  warmup_epochs: 2
+
+model:
+  rlap:
+    focal_spot: true        # enable FocalSpotStream (TinyOCT v2 DRUSEN fix)
+
+checkpoint:
+  dir: /content/drive/MyDrive/tinyoct/checkpoints
+  save_best: true
+  save_every_epoch: false   # save Drive quota; only best is kept
+  monitor: drusen_f1        # DRUSEN is the hardest class — optimise directly
+  mode: max
+
+logging:
+  use_wandb: false          # overridden by notebook if WANDB_API_KEY is set
+  wandb_project: tinyoct
+  output_dir: /content/outputs

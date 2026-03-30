@@ -30,6 +30,7 @@ model:
     horizontal: true
     vertical: true
     orientation_bank: true
+    focal_spot: false       # disabled in smoketest for speed
     angles: [0, 30, 45, 60, 90, 135]
     kernel_size: 3
   prototype:
@@ -38,6 +39,7 @@ model:
   laplacian:
     enabled: true
     alpha: 0.1
+    alpha_coarse: 0.05
 
 train:
   epochs: 3               # smoke-test: 3 epochs
@@ -54,9 +56,11 @@ train:
     orient_weight: 0.05
     orient_angle_range: 5
     orient_temperature: 2.0
+    focal_gamma: 0.0        # disabled in smoketest (standard CE)
   supcon:
     temperature: 0.07
     balanced_sampling: true
+    margin: 0.0             # disabled in smoketest
 
 eval:
   batch_size: 64
