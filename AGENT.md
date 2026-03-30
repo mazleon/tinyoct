@@ -34,14 +34,15 @@ Backbone output: `[B, 576, 7, 7]`. RLAP preserves this shape. After GAP: `[B, 57
 ## Loss Function
 
 ```
-L_total = L_CE + 0.1 · L_SupCon + 0.05 · L_Orient
+L_total = L_CE + 0.1 · L_SupCon + 0.05 · L_Orient + 0.01 · L_Proto
 ```
 
 - `L_CE` — Cross-entropy with inverse-frequency class weights
 - `L_SupCon` — Balanced supervised contrastive loss (requires `BalancedBatchSampler`)
 - `L_Orient` — KL divergence between predictions on original vs ±5° rotated inputs
+- `L_Proto` — Squared hinge loss penalizing inter-class prototype cosine similarity (weight: 0.01, margin: -0.1)
 
-Log all three terms separately in W&B. If any diverges, the combined loss is unreliable.
+Log all four terms separately in W&B. If any diverges, the combined loss is unreliable.
 
 ---
 
@@ -55,7 +56,7 @@ Defined in `configs/ablation.yaml`. Run all six in order via `uv run scripts/run
 | R1_laplacian | LaplacianLayer |
 | R2_rlap_hv | RLAP horizontal + vertical streams |
 | R3_rlap_full | RLAP 6-direction orientation bank |
-| R4_prototype | PrototypeHead + BalancedSupConLoss |
+| R4_prototype | PrototypeHead + BalancedSupConLoss + PrototypeSeparationLoss |
 | R5_full | OrientationConsistencyLoss (complete model) |
 
 ---

@@ -109,6 +109,8 @@ All hyperparameters live in `configs/`. Never hardcode values in scripts.
 | `train.lr` | `1.0e-3` | AdamW learning rate |
 | `train.loss.supcon_weight` | `0.1` | SupCon loss weight λ₁ |
 | `train.loss.orient_weight` | `0.05` | Orientation consistency loss weight λ₂ |
+| `train.loss.proto_weight` | `0.01` | Prototype separation loss weight λ₃ |
+| `train.loss.proto_margin` | `-0.1` | Prototype separation cosine similarity margin |
 | `logging.use_wandb` | `true` | Disable for offline runs |
 | `train.seed` | `42` | Fixed for all research runs — do not change |
 
@@ -266,5 +268,5 @@ These rules define the scientific validity of the project. Violating them weaken
 3. **Parameter Budget:** Total model must remain ~3.2M parameters. CPU inference must remain <5ms at batch size 1.
 4. **Seed Discipline:** All research runs use `seed: 42`. Never run ablation comparisons with different seeds.
 5. **Tensor Shape Comments:** Document `[B, C, H, W]` shapes in inline comments on every significant tensor operation in model modules.
-6. **Loss Monitoring:** Log `L_CE`, `L_SupCon`, and `L_Orient` as separate W&B scalars. If any loss term diverges, the combined loss cannot be trusted.
+6. **Loss Monitoring:** Log `L_CE`, `L_SupCon`, `L_Orient`, and `L_Proto` as separate W&B scalars. If any loss term diverges, the combined loss cannot be trusted.
 7. **OCTID is OOD-only:** No fine-tuning, no validation on OCTID. Its value is as a held-out cross-scanner test.

@@ -89,10 +89,11 @@ Input [B, 3, 224, 224]
 **Total ~3.2M params; <5ms CPU inference (batch=1).**
 
 ### Loss Function
-`L_total = L_CE + 0.1·L_SupCon + 0.05·L_Orient`
+`L_total = L_CE + 0.1·L_SupCon + 0.05·L_Orient + 0.01·L_Proto`
 - `L_CE`: Cross-entropy with inverse-frequency class weights
 - `L_SupCon` (`tinyoct/losses/supcon_loss.py`): Balanced supervised contrastive loss; requires `BalancedBatchSampler`
 - `L_Orient` (`tinyoct/losses/orient_loss.py`): KL divergence between predictions on original vs ±5° rotated inputs
+- `L_Proto` (`tinyoct/losses/proto_loss.py`): Squared hinge loss penalizing inter-class prototype cosine similarity
 
 ### Ablation Configurations (configs/ablation.yaml)
 | ID | Description |
@@ -101,7 +102,7 @@ Input [B, 3, 224, 224]
 | R1_laplacian | + LaplacianLayer |
 | R2_rlap_hv | + RLAP H+V streams |
 | R3_rlap_full | + RLAP 6-direction orientation bank |
-| R4_prototype | + PrototypeHead + SupCon loss |
+| R4_prototype | + PrototypeHead + SupCon loss + PrototypeSeparationLoss |
 | R5_full | + OrientationConsistencyLoss (full model) |
 
 ### Datasets

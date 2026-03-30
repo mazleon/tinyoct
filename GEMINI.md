@@ -9,7 +9,7 @@ You are the primary **Implementation and Execution Engineer** for the TinyOCT pr
 - Implement model modules, loss functions, and training/evaluation scripts as specified in `AGENT.md`.
 - Run experiments using the exact configs in `configs/ablation.yaml` (R0–R5).
 - Ensure all implementations pass unit tests — especially the zero-parameter and shape assertions.
-- Keep W&B logging complete: log `L_CE`, `L_SupCon`, and `L_Orient` as separate scalars every epoch.
+- Keep W&B logging complete: log `L_CE`, `L_SupCon`, `L_Orient`, and `L_Proto` as separate scalars every epoch.
 
 ---
 
@@ -64,14 +64,14 @@ These assertions are also enforced in `tinyoct/tests/test_model.py`. Run `uv run
 
 The combined loss is:
 ```
-L_total = L_CE + 0.1 · L_SupCon + 0.05 · L_Orient
+L_total = L_CE + 0.1 · L_SupCon + 0.05 · L_Orient + 0.01 · L_Proto
 ```
 
 Before merging any loss change:
 - [ ] `L_CE` uses class weights from `cfg.data.class_weights` (inverse frequency)
 - [ ] `L_SupCon` uses `BalancedBatchSampler` — if the sampler is disabled, SupCon will be biased
 - [ ] `L_Orient` computes KL divergence between predictions on original and ±5°-rotated inputs
-- [ ] All three terms logged separately in W&B as `train/loss_ce`, `train/loss_supcon`, `train/loss_orient`
+- [ ] All four terms logged separately in W&B as `train/loss_ce`, `train/loss_supcon`, `train/loss_orient`, `train/loss_proto`
 
 ---
 

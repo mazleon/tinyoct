@@ -36,7 +36,7 @@ Input (224×224)
 
 **~3.2M total parameters. <5ms CPU inference (batch=1).**
 
-Loss: `L_total = L_CE + 0.1·L_SupCon + 0.05·L_Orient`
+Loss: `L_total = L_CE + 0.1·L_SupCon + 0.05·L_Orient + 0.01·L_Proto`
 
 ---
 
@@ -74,7 +74,7 @@ uv run scripts/generate_roc.py --preds outputs/predictions.npz \
 uv run scripts/visualize_attention.py --checkpoint checkpoints/best.pth --n_samples 4
 
 # 10. Unit tests
-uv run pytest tinyoct/tests/ -v
+uv run pytest tests/ -v
 ```
 
 ---
@@ -99,7 +99,7 @@ OCTID is used **only** for OOD evaluation. Never fine-tune on it.
 | R1_laplacian | + LaplacianLayer |
 | R2_rlap_hv | + RLAP horizontal + vertical streams |
 | R3_rlap_full | + RLAP 6-direction orientation bank |
-| R4_prototype | + PrototypeHead + BalancedSupConLoss |
+| R4_prototype | + PrototypeHead + BalancedSupConLoss + PrototypeSeparationLoss |
 | R5_full | + OrientationConsistencyLoss (complete model) |
 
 ---
